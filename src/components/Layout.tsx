@@ -45,6 +45,7 @@ function Header() {
           <ChevronDown className="h-3.5 w-3.5 shrink-0" />
         </button>
 
+        <Link to="/partner/register" className="hidden whitespace-nowrap rounded-full bg-gradient-to-r from-lush-600 to-plum-700 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 md:block lg:text-sm">Become a Partner</Link>
         <Link to="/cart" className="relative rounded-full p-2 text-plum-800 hover:bg-blush-100" aria-label={`Cart, ${cart.count} items`}>
           <ShoppingBag className="h-5 w-5" />
           {cart.count > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-lush-600 px-1 text-[10px] font-bold text-white">{cart.count}</span>}
@@ -58,7 +59,7 @@ function Header() {
           <aside className="animate-pop absolute right-0 top-0 h-full w-72 max-w-[85%] overflow-y-auto bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()} aria-label="Menu">
             <div className="mb-4 flex items-center justify-between"><LogoMark size="h-10 w-10" /><button aria-label="Close menu" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button></div>
             <ul className="space-y-1 text-sm font-medium text-plum-800">
-              {[...NAV, { to: '/services', label: 'All Services' }, { to: '/partner', label: 'Become a Partner' }, { to: '/help', label: 'Help & Support' }, { to: '/about', label: 'About Lushira' }].map((n) => (
+              {[...NAV, { to: '/services', label: 'All Services' }, { to: '/partner/register', label: 'Register as Partner' }, { to: '/help', label: 'Help & Support' }, { to: '/about', label: 'About Lushira' }].map((n) => (
                 <li key={n.to}><Link to={n.to} className="block rounded-lg px-3 py-2.5 hover:bg-blush-100">{n.label}</Link></li>
               ))}
               {isPartner && <li><Link to="/partner/dashboard" className="block rounded-lg px-3 py-2.5 text-lush-700 hover:bg-blush-100">Partner dashboard</Link></li>}
@@ -120,7 +121,7 @@ function Footer() {
         <div>
           <h4 className={h}>Quick Links</h4>
           <ul className={col}>
-            {[['/', 'Home'], ['/categories', 'Categories'], ['/services', 'Services'], ['/wedding', 'Wedding Special'], ['/salons', 'Explore Salons'], ['/brands', 'Brands'], ['/partner', 'Become a Partner']].map(([to, l]) => (
+            {[['/', 'Home'], ['/categories', 'Categories'], ['/services', 'Services'], ['/wedding', 'Wedding Special'], ['/salons', 'Explore Salons'], ['/brands', 'Brands'], ['/partner/register', 'Become a Partner']].map(([to, l]) => (
               <li key={to}><Link className="hover:text-white" to={to}>{l}</Link></li>))}
           </ul>
         </div>
