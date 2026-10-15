@@ -11,6 +11,7 @@ import { reverseGeocodeAddress, searchPlaces, type PlaceHit } from '../../lib/ge
 import { Field, PageHero, Skeleton, Spinner } from '../../components/ui'
 import MapView from '../../components/MapView'
 import MobileAccount from '../../components/MobileAccount'
+import WrongAccount, { isCustomerAccount } from '../../components/WrongAccount'
 import { realEmail } from '../../lib/mobileAuth'
 import { HoursEditor, PhotosEditor, ServicesEditor, uploadSalonImage } from './editors'
 import type { Salon } from '../../lib/types'
@@ -28,7 +29,7 @@ export function useMySalon() {
 }
 
 export default function PartnerRegister() {
-  const { user, loading, refresh, isPartner } = useAuth()
+  const { user, loading, refresh, isPartner, isAdmin } = useAuth()
   const salonQ = useMySalon()
   const [step, setStep] = useState(0)
   const nav = useNavigate()
@@ -36,6 +37,7 @@ export default function PartnerRegister() {
 
   useEffect(() => { if (user && step === 0 && isPartner) setStep(salon ? 2 : 1) }, [user, isPartner, salon, step])
 
+  if (!loading && user && !isAdmin && !isPartner && isCustomerAccount(user.email)) return <WrongAccount />
   if (loading || (user && salonQ.isLoading)) return <div className="container-x py-12"><Skeleton className="h-64" /></div>
   if (salon && !['draft', 'rejected'].includes(salon.status)) return <Status salon={salon} onGo={() => nav('/partner/dashboard')} />
 
@@ -102,7 +104,7 @@ function AccountStep({ onDone }: { onDone: () => Promise<void> }) {
         ))}
       </div>
       <h2 className="font-display text-xl font-semibold">{mode === 'signup' ? 'Create your partner account' : 'Log in to continue'}</h2>
-      <MobileAccount mode={mode} onAuthed={authed} />
+      <MobileAccount kind="partner" mode={mode} onAuthed={authed} />
     </div>
   )
 }

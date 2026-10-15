@@ -6,6 +6,7 @@ import { isEmail } from '../lib/format'
 import { Field, LogoMark, Spinner } from '../components/ui'
 import PasswordInput from '../components/PasswordInput'
 import MobileAccount from '../components/MobileAccount'
+import WrongAccount, { isCustomerAccount } from '../components/WrongAccount'
 
 export default function Auth({ mode, defaultNext = '/', partner = false }: { mode: 'login' | 'signup'; defaultNext?: string; partner?: boolean }) {
   const { user, loading, isPartner, isAdmin } = useAuth()
@@ -16,6 +17,7 @@ export default function Auth({ mode, defaultNext = '/', partner = false }: { mod
   const adminLogin = !signup && (sp.get('admin') === '1' || next.startsWith('/admin'))
   const [showAdmin, setShowAdmin] = useState(adminLogin)
 
+  if (!loading && user && partner && !isAdmin && !isPartner && isCustomerAccount(user.email)) return <WrongAccount />
   if (!loading && user) return <Navigate to={isPartner && !isAdmin && !next.startsWith('/partner') ? '/partner/dashboard' : next} replace />
 
   return (
@@ -33,7 +35,7 @@ export default function Auth({ mode, defaultNext = '/', partner = false }: { mod
         <h1 className="text-center text-2xl font-semibold">{showAdmin ? 'Admin login' : partner ? 'Partner login' : signup ? 'Create your account' : 'Welcome back'}</h1>
         <p className="mb-5 text-center text-sm text-muted">{showAdmin ? 'Team members only.' : signup ? 'Sign up with your mobile number.' : 'Log in with your mobile number.'}</p>
 
-        {showAdmin ? <AdminEmailLogin onDone={() => nav(next, { replace: true })} /> : <MobileAccount mode={mode} onAuthed={() => nav(next, { replace: true })} />}
+        {showAdmin ? <AdminEmailLogin onDone={() => nav(next, { replace: true })} /> : <MobileAccount kind={partner ? 'partner' : 'customer'} mode={mode} onAuthed={() => nav(next, { replace: true })} />}
 
         {partner ? <p className="mt-2 text-center text-xs text-muted">New salon? <Link className="underline" to="/partner/register">Register your salon</Link></p> : !showAdmin && <p className="mt-2 text-center text-xs text-muted">Salon owner? <Link className="underline" to="/partner">Become a partner</Link></p>}
         {!signup && !partner && <p className="mt-3 text-center text-xs"><button className="text-muted underline" onClick={() => setShowAdmin(!showAdmin)}>{showAdmin ? 'Back to mobile login' : 'Admin? Log in with email'}</button></p>}

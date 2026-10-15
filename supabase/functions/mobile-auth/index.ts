@@ -5,7 +5,8 @@ import { admin, cors, hmacHex, json, safeEqual } from './util.ts'
 
 const MOBILE = /^[6-9]\d{9}$/
 const PURPOSES = ['signup', 'login', 'reset']
-const DOMAIN = 'phone.lushira.app'
+const DOMAINS = { customer: 'phone.lushira.app', partner: 'partner.lushira.app' } as const
+type Kind = keyof typeof DOMAINS
 const COOLDOWN_S = 45
 const OTP_TTL_MIN = 10
 const MAX_ATTEMPTS = 5
@@ -13,7 +14,7 @@ const MAX_SENDS_PER_MOBILE_HOUR = 5
 const MAX_SENDS_PER_IP_HOUR = 15
 const MAX_FAILS_PER_IP_15MIN = 30
 
-const emailFor = (m: string) => `${m}@${DOMAIN}`
+const emailFor = (m: string, k: Kind) => `${m}@${DOMAINS[k]}`
 const fail = (error: string, status = 400) => json({ ok: false, error }, status)
 
 async function apiKey(db: ReturnType<typeof admin>) {
@@ -37,8 +38,8 @@ async function sendSms(key: string, mobile: string, otp: string) {
   }
 }
 
-const hashOtp = (mobile: string, purpose: string, otp: string) =>
-  hmacHex(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, `otp:${mobile}:${purpose}:${otp}`)
+const hashOtp = (mobile: string, purpose: string, otp: string, kind: Kind) =>
+  hmacHex(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, `otp:${kind}:${mobile}:${purpose}:${otp}`)
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
@@ -46,12 +47,13 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}))
   const mobile = String(body.mobile ?? '').trim()
   const purpose = String(body.purpose ?? '')
+  const kind: Kind = body.kind === 'partner' ? 'partner' : 'customer'   // customer and partner accounts are separate, even for the same mobile
   if (!MOBILE.test(mobile)) return fail('Please enter a valid 10-digit Indian mobile number (without +91 or 0).')
   if (!PURPOSES.includes(purpose)) return fail('Invalid request.')
   const ip = (req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for') ?? 'unknown').split(',')[0].trim()
   const db = admin()
   const since = (ms: number) => new Date(Date.now() - ms).toISOString()
-  const uidRes = await db.rpc('auth_user_by_mobile', { p_mobile: mobile })
+  const uidRes = await db.rpc('auth_user_by_login', { p_mobile: mobile, p_kind: kind })
   const uid = (uidRes.data as string | null) ?? null
 
   // ---------------- SEND ----------------
@@ -75,7 +77,7 @@ Deno.serve(async (req) => {
 
     const otp = String(crypto.getRandomValues(new Uint32Array(1))[0] % 900000 + 100000)
     const up = await db.from('mobile_otps').upsert(
-      { mobile, purpose, otp_hash: await hashOtp(mobile, purpose, otp), expires_at: new Date(Date.now() + OTP_TTL_MIN * 60_000).toISOString(), attempts: 0, created_at: new Date().toISOString() },
+      { mobile, purpose, otp_hash: await hashOtp(mobile, purpose, otp, kind), expires_at: new Date(Date.now() + OTP_TTL_MIN * 60_000).toISOString(), attempts: 0, created_at: new Date().toISOString() },
       { onConflict: 'mobile,purpose' })
     if (up.error) { console.error(up.error.message); return fail('Could not send the OTP right now.', 500) }
     const ok = await sendSms(key, mobile, otp)
@@ -113,7 +115,7 @@ Deno.serve(async (req) => {
       await db.from('mobile_otps').delete().eq('id', row.id)
       return bad('Too many wrong attempts. Please request a new code.')
     }
-    if (!safeEqual(row.otp_hash, await hashOtp(mobile, purpose, code))) {
+    if (!safeEqual(row.otp_hash, await hashOtp(mobile, purpose, code, kind))) {
       await db.from('mobile_otps').update({ attempts: row.attempts + 1 }).eq('id', row.id)
       return bad(`Incorrect code. ${Math.max(MAX_ATTEMPTS - row.attempts - 1, 0)} attempt(s) left.`)
     }
@@ -123,8 +125,10 @@ Deno.serve(async (req) => {
 
     let userId = uid
     if (purpose === 'signup') {
+      // auth.users.phone is unique, so only customer accounts carry it; partner accounts keep the mobile in metadata
       const c = await db.auth.admin.createUser({
-        email: emailFor(mobile), password, email_confirm: true, phone: '91' + mobile, phone_confirm: true, user_metadata: { full_name: fullName.slice(0, 120) },
+        email: emailFor(mobile, kind), password, email_confirm: true, ...(kind === 'customer' ? { phone: '91' + mobile, phone_confirm: true } : {}),
+        user_metadata: { full_name: fullName.slice(0, 120), mobile, account_kind: kind },
       })
       if (c.error || !c.data.user) { console.error('createUser', c.error?.message); return fail('Could not create your account. Please try again.', 500) }
       userId = c.data.user.id
@@ -132,7 +136,7 @@ Deno.serve(async (req) => {
       const u = await db.auth.admin.updateUserById(userId!, { password })
       if (u.error) { console.error('reset', u.error.message); return fail('Could not reset the password. Please try again.', 500) }
     }
-    const link = await db.auth.admin.generateLink({ type: 'magiclink', email: emailFor(mobile) })
+    const link = await db.auth.admin.generateLink({ type: 'magiclink', email: emailFor(mobile, kind) })
     const th = link.data?.properties?.hashed_token
     if (link.error || !th) { console.error('link', link.error?.message); return fail('Verified, but sign-in failed. Please log in with your password.', 500) }
     await db.from('otp_requests').insert({ phone: mobile, ip, purpose: 'verified_' + purpose, success: true })

@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom'
 import { KeyRound, Smartphone } from 'lucide-react'
 import { Field, Spinner } from './ui'
 import PasswordInput from './PasswordInput'
-import { cleanMobile, loginWithMobilePassword, sendMobileOtp, verifyMobileOtp, type OtpPurpose } from '../lib/mobileAuth'
+import { cleanMobile, loginWithMobilePassword, sendMobileOtp, verifyMobileOtp, type AccountKind, type OtpPurpose } from '../lib/mobileAuth'
 
 /** Mobile-number-only signup / login / password reset with OTP. Calls onAuthed() once signed in. */
-export default function MobileAccount({ mode, onAuthed }: { mode: 'login' | 'signup'; onAuthed: () => void | Promise<void> }) {
+export default function MobileAccount({ mode, onAuthed, kind = 'customer' }: { mode: 'login' | 'signup'; onAuthed: () => void | Promise<void>; kind?: AccountKind }) {
   const [reset, setReset] = useState(false)
   const [method, setMethod] = useState<'otp' | 'password'>('otp')
   const [name, setName] = useState('')
@@ -41,13 +41,13 @@ export default function MobileAccount({ mode, onAuthed }: { mode: 'login' | 'sig
 
   const send = () => {
     const v = validate(); if (v) return setErr(v)
-    void run(async () => { setCool(await sendMobileOtp(m!, purpose)); setCodeSent(true); setCode('') })
+    void run(async () => { setCool(await sendMobileOtp(m!, purpose, kind)); setCodeSent(true); setCode('') })
   }
   const verify = (e: FormEvent) => {
     e.preventDefault()
     if (!/^\d{6}$/.test(code)) return setErr('Enter the 6-digit code.')
     void run(async () => {
-      await verifyMobileOtp({ mobile: m!, purpose, code, full_name: signup ? name.trim() : undefined, password: needsPassword ? password : undefined })
+      await verifyMobileOtp({ kind, mobile: m!, purpose, code, full_name: signup ? name.trim() : undefined, password: needsPassword ? password : undefined })
       await onAuthed()
     })
   }
@@ -55,7 +55,7 @@ export default function MobileAccount({ mode, onAuthed }: { mode: 'login' | 'sig
     e.preventDefault()
     if (!m) return setErr('Enter a valid 10-digit mobile number.')
     if (!password) return setErr('Enter your password.')
-    void run(async () => { await loginWithMobilePassword(m, password); await onAuthed() })
+    void run(async () => { await loginWithMobilePassword(m, password, kind); await onAuthed() })
   }
 
   if (codeSent) {
