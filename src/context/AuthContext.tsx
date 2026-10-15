@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { AppRole, Profile } from '../lib/types'
@@ -22,13 +22,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [roles, setRoles] = useState<AppRole[]>([])
   const [loading, setLoading] = useState(true)
+  const lastUser = useRef<string | undefined>(undefined)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
+      lastUser.current = data.session?.user.id
       setSession(data.session)
       if (!data.session) setLoading(false)
     })
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      // A different user just signed in: stay in "loading" until their roles are fetched, otherwise
+      // RequireAuth sees a user with no roles yet and wrongly sends admins/partners to /403.
+      if (s && s.user.id !== lastUser.current) setLoading(true)
+      lastUser.current = s?.user.id
       setSession(s)
       if (!s) {
         setProfile(null)
