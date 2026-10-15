@@ -4,7 +4,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   const user = await getUser(req)
   if (!user) return json({ error: 'Please log in again.' }, 401)
-  const rz = razorpayCreds()
+  const rz = await razorpayCreds()
   if (!rz) return json({ error: 'Online payments are not configured yet.' }, 503)
   const { booking_id } = await req.json().catch(() => ({}))
   if (!booking_id) return json({ error: 'booking_id required' }, 400)

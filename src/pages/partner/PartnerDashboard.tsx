@@ -8,18 +8,19 @@ import { supabase } from '../../lib/supabase'
 import { friendlyError } from '../../lib/errors'
 import { fmtDateTime, fmtTime, inr, istDate } from '../../lib/format'
 import { useAuth } from '../../context/AuthContext'
+import { useNavigate } from 'react-router-dom'
 import { useToast } from '../../context/ToastContext'
 import { EmptyState, ErrorState, PageHero, Skeleton } from '../../components/ui'
 import { PayBadge, StatusBadge } from '../../components/booking'
 import { BrandsEditor, HoursEditor, PhotosEditor, ServicesEditor, StaffEditor } from './editors'
 import type { Booking, BookingStatus, Salon } from '../../lib/types'
 
-type Tab = 'overview' | 'bookings' | 'services' | 'hours' | 'photos' | 'staff' | 'brands' | 'reports'
-const TABS: [Tab, string][] = [['overview', 'Overview'], ['bookings', 'Bookings'], ['services', 'Services'], ['hours', 'Hours'], ['photos', 'Photos'], ['staff', 'Staff'], ['brands', 'Brands'], ['reports', 'Reports']]
+type Tab = 'bookings' | 'overview' | 'services' | 'hours' | 'photos' | 'staff' | 'brands' | 'reports' | 'account'
+const TABS: [Tab, string][] = [['bookings', 'Orders'], ['overview', 'Overview'], ['services', 'Services'], ['hours', 'Hours'], ['photos', 'Photos'], ['staff', 'Staff'], ['brands', 'Brands'], ['reports', 'Reports'], ['account', 'Account']]
 
 export default function PartnerDashboard() {
   const salonQ = useMySalon()
-  const [tab, setTab] = useState<Tab>('overview')
+  const [tab, setTab] = useState<Tab>('bookings')
   const qc = useQueryClient()
   const salon = salonQ.data
   if (salonQ.isLoading) return <div className="container-x py-10"><Skeleton className="h-64" /></div>
@@ -27,7 +28,7 @@ export default function PartnerDashboard() {
   if (!salon) return <div className="container-x py-12"><EmptyState title="No salon yet" text="Register your salon to start receiving bookings." action={<Link to="/partner/register" className="btn btn-primary btn-sm">Register salon</Link>} /></div>
   return (
     <>
-      <PageHero eyebrow="Partner dashboard" title={salon.name} subtitle={[salon.area, salon.city].filter(Boolean).join(', ')} />
+      <PageHero eyebrow="Partner portal" title={salon.name} subtitle={[salon.area, salon.city].filter(Boolean).join(', ')} />
       <div className="container-x py-5">
         {salon.status !== 'approved' && <StatusBanner salon={salon} />}
         <div className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4" role="tablist">
@@ -41,6 +42,7 @@ export default function PartnerDashboard() {
         {tab === 'staff' && <StaffEditor salonId={salon.id} />}
         {tab === 'brands' && <BrandsEditor salonId={salon.id} />}
         {tab === 'reports' && <Reports salon={salon} />}
+        {tab === 'account' && <Account salon={salon} />}
       </div>
     </>
   )
@@ -186,6 +188,24 @@ function Reports({ salon }: { salon: Salon }) {
       <div className="card p-4"><h3 className="mb-3 font-display text-lg font-semibold">Revenue — last 14 days</h3>
         <div className="flex h-40 items-end gap-1.5" role="img" aria-label="Revenue per day for the last 14 days">{data.by.map((x) => <div key={x.d} className="flex flex-1 flex-col items-center justify-end gap-1" title={`${x.d}: ${inr(x.rev)} (${x.n})`}><div className="w-full rounded-t bg-gradient-to-t from-lush-600 to-lush-400" style={{ height: `${(x.rev / data.max) * 100}%`, minHeight: x.rev ? 4 : 1 }} /><span className="text-[9px] text-muted">{x.d.slice(8)}</span></div>)}</div>
         <p className="mt-2 text-xs text-muted">Based on completed bookings, amounts include taxes.</p></div>
+    </div>
+  )
+}
+
+function Account({ salon }: { salon: Salon }) {
+  const { user, profile, signOut } = useAuth()
+  const nav = useNavigate()
+  return (
+    <div className="card max-w-lg space-y-3 p-5 text-sm">
+      <h3 className="font-display text-lg font-semibold">My account</h3>
+      <p><span className="text-muted">Name:</span> {profile?.full_name || '—'}</p>
+      <p><span className="text-muted">Login email:</span> {user?.email}</p>
+      <p><span className="text-muted">Salon:</span> {salon.name} <span className="chip capitalize">{salon.status}</span></p>
+      <p><span className="text-muted">Salon phone:</span> {salon.contact_phone}</p>
+      <div className="flex flex-wrap gap-2 pt-2">
+        {['draft', 'rejected'].includes(salon.status) && <Link to="/partner/register" className="btn btn-primary btn-sm">Edit registration</Link>}
+        <button className="btn btn-outline btn-sm" onClick={async () => { await signOut(); nav('/partner/login') }}>Log out</button>
+      </div>
     </div>
   )
 }

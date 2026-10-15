@@ -1,8 +1,8 @@
 // Razorpay -> Lushira. Configure in Razorpay Dashboard: events payment.captured, order.paid, payment.failed, refund.processed, refund.failed
-import { admin, hmacHex, json, markPaid, safeEqual } from '../_shared/util.ts'
+import { admin, hmacHex, json, markPaid, safeEqual, webhookSecret } from '../_shared/util.ts'
 
 Deno.serve(async (req) => {
-  const secret = Deno.env.get('RAZORPAY_WEBHOOK_SECRET')
+  const secret = await webhookSecret()
   if (!secret) return json({ error: 'not configured' }, 503)
   const raw = await req.text()
   const sig = req.headers.get('x-razorpay-signature') ?? ''

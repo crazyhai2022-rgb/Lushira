@@ -118,6 +118,7 @@ function Payments() {
   })
   return (
     <div className="space-y-6">
+      <RazorpaySetup />
       <section><h3 className="mb-2 font-display text-lg font-semibold">Refund requests</h3>
         {ref.isLoading ? <Skeleton className="h-16" /> : !ref.data?.length ? <p className="text-sm text-muted">No refunds yet.</p> : <ul className="space-y-2">{ref.data.map((r) => (
           <li key={r.id} className="card flex flex-wrap items-center gap-3 p-3 text-sm"><div className="flex-1"><p className="font-medium">#{r.bookings?.reference} · {inr(r.amount_inr)}</p><p className="text-xs text-muted">{r.reason} · {fmtDateTime(r.created_at)}</p></div><span className="chip capitalize">{r.status}</span>
@@ -126,6 +127,70 @@ function Payments() {
         {pay.isLoading ? <Skeleton className="h-16" /> : pay.isError ? <ErrorState onRetry={() => pay.refetch()} /> : <div className="card overflow-x-auto"><table className="w-full min-w-[560px] text-left text-sm"><thead className="bg-blush-50 text-xs text-muted"><tr>{['Booking', 'Method', 'Amount', 'Status', 'Gateway ID', 'Date'].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-line">{pay.data?.map((p) => <tr key={p.id}><td className="px-3 py-2 font-mono text-xs">{p.bookings?.reference}</td><td className="px-3 py-2">{p.method}</td><td className="px-3 py-2">{inr(p.amount_inr)}</td><td className="px-3 py-2">{p.status}</td><td className="px-3 py-2 font-mono text-xs">{p.razorpay_payment_id ?? '—'}</td><td className="px-3 py-2">{fmtDateTime(p.created_at)}</td></tr>)}</tbody></table></div>}</section>
     </div>
+  )
+}
+
+type RzpStatus = { configured: boolean; key_id: string; mode: 'test' | 'live' | null; has_webhook_secret: boolean }
+const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/razorpay-webhook`
+
+function RazorpaySetup() {
+  const qc = useQueryClient()
+  const toast = useToast()
+  const [keyId, setKeyId] = useState('')
+  const [secret, setSecret] = useState('')
+  const [wh, setWh] = useState('')
+  const [show, setShow] = useState(false)
+  const st = useQuery({
+    queryKey: ['a-rzp'],
+    queryFn: async () => {
+      const r = await supabase.functions.invoke('admin-save-razorpay', { body: { action: 'status' } })
+      if (r.error || r.data?.error) throw new Error(r.data?.error || 'Could not load Razorpay status.')
+      return r.data as RzpStatus
+    },
+  })
+  const call = useMutation({
+    mutationFn: async (body: Record<string, string>) => {
+      const r = await supabase.functions.invoke('admin-save-razorpay', { body })
+      let msg = r.data?.error as string | undefined
+      if (r.error && !msg) { try { msg = (await (r.error as { context?: Response }).context?.json())?.error } catch { /* ignore */ } }
+      if (r.error || msg) throw new Error(msg || 'Request failed.')
+      return r.data as RzpStatus
+    },
+    onSuccess: (d, v) => {
+      qc.setQueryData(['a-rzp'], d)
+      void qc.invalidateQueries({ queryKey: ['settings'] })
+      setSecret(''); setWh(''); if (v.action === 'clear') setKeyId('')
+      toast.success(v.action === 'clear' ? 'Razorpay disconnected.' : 'Razorpay connected. Online payments are now active.')
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : friendlyError(e)),
+  })
+  const d = st.data
+  return (
+    <section className="card space-y-3 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="font-display text-lg font-semibold">Razorpay online payments</h3>
+        {d && <span className={`chip ${d.configured ? 'bg-green-100 text-green-800' : ''}`}>{d.configured ? `Active · ${d.mode === 'live' ? 'Live' : 'Test'} mode` : 'Not connected'}</span>}
+      </div>
+      {st.isError && <p className="text-sm text-red-600">{(st.error as Error).message}</p>}
+      {d?.configured && <p className="text-sm text-muted">Connected key: <span className="font-mono">{d.key_id}</span> · Webhook secret: {d.has_webhook_secret ? 'saved' : 'not saved yet'}</p>}
+      <p className="text-sm text-muted">Razorpay Dashboard → Account &amp; Settings → API Keys se Key ID aur Key Secret copy karke yahan dalein. Save karte hi keys verify hoti hain aur checkout par online payment active ho jata hai. Secret kabhi wapas dikhaya nahi jata.</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block text-sm">Key ID<input className="input mt-1 font-mono" placeholder="rzp_test_xxxxxxxx" value={keyId} onChange={(e) => setKeyId(e.target.value)} autoComplete="off" /></label>
+        <label className="block text-sm">Key Secret
+          <div className="relative mt-1"><input className="input pr-10 font-mono" type={show ? 'text' : 'password'} placeholder={d?.configured ? '•••••••• (enter to replace)' : 'Key Secret'} value={secret} onChange={(e) => setSecret(e.target.value)} autoComplete="new-password" />
+            <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted" aria-label={show ? 'Hide' : 'Show'} onClick={() => setShow(!show)}>{show ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></label>
+        <label className="block text-sm sm:col-span-2">Webhook Secret (optional, recommended)<input className="input mt-1 font-mono" type={show ? 'text' : 'password'} placeholder="Secret you set while creating the webhook" value={wh} onChange={(e) => setWh(e.target.value)} autoComplete="new-password" /></label>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button className="btn btn-primary" disabled={call.isPending || !keyId.trim() || !secret.trim()} onClick={() => call.mutate({ action: 'save', key_id: keyId, key_secret: secret, webhook_secret: wh })}>{call.isPending ? 'Verifying…' : d?.configured ? 'Update keys' : 'Save & activate'}</button>
+        {d?.configured && <button className="btn btn-ghost" disabled={call.isPending} onClick={() => { if (confirm('Disconnect Razorpay? Customers will only see cash payment.')) call.mutate({ action: 'clear' }) }}>Disconnect</button>}
+      </div>
+      <div className="rounded-xl bg-blush-50 p-3 text-xs">
+        <p className="font-medium">Webhook setup (Razorpay → Settings → Webhooks → Add)</p>
+        <p className="mt-1 break-all">URL: <span className="font-mono">{WEBHOOK_URL}</span> <button className="ml-1 underline" onClick={() => { void navigator.clipboard?.writeText(WEBHOOK_URL); toast.success('Webhook URL copied.') }}>Copy</button></p>
+        <p className="mt-1">Events: payment.captured, order.paid, payment.failed, refund.processed, refund.failed. Wahi secret yahan &ldquo;Webhook Secret&rdquo; me dalein.</p>
+      </div>
+    </section>
   )
 }
 

@@ -12,12 +12,12 @@ type Method = 'email' | 'password' | 'phone'
 const MAX_ATTEMPTS = 5
 const COOLDOWN = 30
 
-export default function Auth({ mode }: { mode: 'login' | 'signup' }) {
-  const { user, loading } = useAuth()
+export default function Auth({ mode, defaultNext = '/', partner = false }: { mode: 'login' | 'signup'; defaultNext?: string; partner?: boolean }) {
+  const { user, loading, isPartner, isAdmin } = useAuth()
   const [sp] = useSearchParams()
   const nav = useNavigate()
   const toast = useToast()
-  const next = sp.get('next') && sp.get('next')!.startsWith('/') ? sp.get('next')! : '/'
+  const next = sp.get('next') && sp.get('next')!.startsWith('/') ? sp.get('next')! : defaultNext
   const [method, setMethod] = useState<Method>('email')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -34,7 +34,7 @@ export default function Auth({ mode }: { mode: 'login' | 'signup' }) {
 
   useEffect(() => { if (cool <= 0) return; const t = setTimeout(() => setCool((c) => c - 1), 1000); return () => clearTimeout(t) }, [cool])
 
-  if (!loading && user) return <Navigate to={next} replace />
+  if (!loading && user) return <Navigate to={isPartner && !isAdmin && !next.startsWith('/partner') ? '/partner/dashboard' : next} replace />
 
   const redirectTo = `${env.siteUrl}${next}`
   const fail = (e: unknown) => { setErr(friendlyError(e)); setBusy(false) }
@@ -102,7 +102,7 @@ export default function Auth({ mode }: { mode: 'login' | 'signup' }) {
     <div className="mx-auto flex min-h-[70vh] max-w-md items-center px-4 py-10">
       <div className="card w-full p-6 sm:p-8">
         <div className="mb-4 flex justify-center"><LogoMark size="h-14 w-14" /></div>
-        <h1 className="text-center text-2xl font-semibold">{signup ? 'Create your account' : 'Welcome back'}</h1>
+        <h1 className="text-center text-2xl font-semibold">{partner ? 'Partner login' : signup ? 'Create your account' : 'Welcome back'}</h1>
         <p className="mb-5 text-center text-sm text-muted">{signup ? 'Book beauty services in minutes.' : 'Log in to manage your bookings.'}</p>
 
         {sent ? (
@@ -135,11 +135,11 @@ export default function Auth({ mode }: { mode: 'login' | 'signup' }) {
             </form>
           </>
         )}
-        <p className="mt-6 text-center text-sm text-muted">
+        {!partner && <p className="mt-6 text-center text-sm text-muted">
           {signup ? <>Already have an account? <Link className="font-semibold text-lush-600" to={`/login${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`}>Log in</Link></> :
             <>New to Lushira? <Link className="font-semibold text-lush-600" to={`/signup${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`}>Create an account</Link></>}
-        </p>
-        <p className="mt-2 text-center text-xs text-muted">Salon owner? <Link className="underline" to="/partner">Become a partner</Link></p>
+        </p>}
+        {partner ? <p className="mt-2 text-center text-xs text-muted">New salon? <Link className="underline" to="/partner/register">Register your salon</Link></p> : <p className="mt-2 text-center text-xs text-muted">Salon owner? <Link className="underline" to="/partner">Become a partner</Link></p>}
       </div>
     </div>
   )

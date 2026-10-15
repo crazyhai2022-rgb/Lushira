@@ -6,7 +6,7 @@ import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useSettings } from '../hooks/useSettings'
-import { supabase, razorpayEnabled } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
 import { getSlots } from '../lib/api'
 import { dayLabel, duration, fmtTime, inr, istDate, normalizePhone } from '../lib/format'
 import { friendlyError } from '../lib/errors'
@@ -48,7 +48,7 @@ export default function Checkout() {
   const salonId = cart.salon?.id ?? ''
   const totalMin = cart.totalMinutes
   const home = cart.mode === 'home'
-  const razorOk = razorpayEnabled && st.onlineEnabled
+  const razorOk = !!st.razorpayKeyId && st.onlineEnabled
   useEffect(() => { if (!pay) setPay(razorOk ? 'razorpay' : st.cashEnabled ? 'cash' : null) }, [razorOk, st.cashEnabled, pay])
 
   const meta = useQuery({

@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
     return json({ ok: true })
   }
   if (action !== 'approve') return json({ error: 'Invalid action' }, 400)
-  const rz = razorpayCreds()
+  const rz = await razorpayCreds()
   const payId = (r as unknown as { payments: { razorpay_payment_id: string | null } }).payments?.razorpay_payment_id
   if (!rz || !payId) return json({ error: 'Razorpay is not configured or the payment has no gateway ID.' }, 503)
 

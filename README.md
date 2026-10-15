@@ -30,19 +30,16 @@ Partners get their role automatically when they register at `/partner/register`.
    - Auth → Providers → Phone → enable; Auth → Hooks → *Send SMS* → HTTPS → `https://<project>.supabase.co/functions/v1/send-sms-hook`, generate the secret.
    - Function secrets: `SEND_SMS_HOOK_SECRET` (the `v1,whsec_…` value), and either `SMS_PROVIDER=msg91` + `MSG91_AUTH_KEY` + `MSG91_TEMPLATE_ID` (India needs a DLT-registered template) or `SMS_PROVIDER=twilio` + `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + `TWILIO_FROM`.
    - Set `VITE_PHONE_OTP_ENABLED=true` and rebuild. Until then the UI honestly shows "being set up".
-4. **Razorpay:** create keys in the Razorpay dashboard (test mode first).
-   - Function secrets: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`.
-   - Frontend: `VITE_RAZORPAY_KEY_ID` (public key id only). Without it checkout offers cash only.
-   - Webhook URL `https://<project>.supabase.co/functions/v1/razorpay-webhook`; events: `payment.captured`, `order.paid`, `payment.failed`, `refund.processed`, `refund.failed`.
+4. **Razorpay (no env vars needed):** log in as admin → **Admin → Payments & refunds → Razorpay online payments**, paste Key ID + Key Secret (+ optional Webhook Secret) and press *Save & activate*. Keys are verified with Razorpay, the secret is stored server-side only (`payment_secrets`, no client access) and online payments switch on at checkout. Add the webhook shown on that panel in Razorpay (`.../functions/v1/razorpay-webhook`; events `payment.captured`, `order.paid`, `payment.failed`, `refund.processed`, `refund.failed`). Start with test keys.
 5. **Maps:** works out of the box with OpenStreetMap tiles + Nominatim search. For production traffic set `VITE_MAPBOX_TOKEN` and respect the OSM/Nominatim usage policy.
 6. **Salon discovery:** no salons are pre-loaded (nothing is invented). Salons appear when partners register and an admin approves them (Admin → Salons). Only import businesses you have permission to list.
 7. Unpaid online bookings auto-expire after 30 min (`pg_cron` job `lushira-expire-unpaid`, already scheduled).
 
 ## Edge Functions (`supabase/functions`, deployed)
-`razorpay-create-order`, `razorpay-verify`, `razorpay-webhook` (no JWT; HMAC-verified, idempotent via `webhook_events`), `razorpay-refund` (admin only), `send-sms-hook` (no JWT; Standard Webhooks signature, 5 OTP/hour/phone).
+`razorpay-create-order`, `razorpay-verify`, `razorpay-webhook` (no JWT; HMAC-verified, idempotent via `webhook_events`), `razorpay-refund` (admin only), `admin-save-razorpay` (admin only), `send-sms-hook` (no JWT; Standard Webhooks signature, 5 OTP/hour/phone).
 
 ## Routes
-`/` · `/categories` · `/services` · `/service/:id` · `/salons` · `/salon/:slug` · `/wedding` · `/brands` · `/cart` · `/checkout` · `/order/:id` · `/orders` · `/track` · `/track/:id` · `/login` · `/signup` · `/profile` · `/about` · `/contact` · `/faq` · `/help` · `/privacy` · `/terms` · `/refund-policy` · `/partner` · `/partner/register` · `/partner/dashboard` · `/admin` · `/403` · 404
+`/` · `/categories` · `/services` · `/service/:id` · `/salons` · `/salon/:slug` · `/wedding` · `/brands` · `/cart` · `/checkout` · `/order/:id` · `/orders` · `/track` · `/track/:id` · `/login` · `/signup` · `/profile` · `/about` · `/contact` · `/faq` · `/help` · `/privacy` · `/terms` · `/refund-policy` · `/partner` · `/partner/register` · `/partner/login` · `/partner/dashboard` (standalone partner portal; partners never see the customer site) · `/admin` · `/403` · 404
 
 ## Security notes
 RLS on every table; bookings are created only through the `create_booking` RPC (server-side pricing, slot and coupon checks); double-booking is blocked by a Postgres exclusion constraint; payment status changes only through signature-verified Edge Functions; staff phones/owner details are never publicly readable; device geolocation is requested only after an explicit button press.

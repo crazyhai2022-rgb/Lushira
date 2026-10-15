@@ -9,6 +9,7 @@ import ServiceDetails from './pages/ServiceDetails'
 import Cart from './pages/Cart'
 import { About, Contact, Faq, Help, Privacy, Refund, Terms, NotFound, Forbidden } from './pages/Static'
 import PartnerLanding from './pages/partner/PartnerLanding'
+import PartnerShell from './pages/partner/PartnerShell'
 
 const Salons = lazy(() => import('./pages/Salons'))
 const SalonDetails = lazy(() => import('./pages/SalonDetails'))
@@ -57,11 +58,14 @@ export default function App() {
           <Route path="terms" element={<Terms />} />
           <Route path="refund-policy" element={<Refund />} />
           <Route path="partner" element={<PartnerLanding />} />
-          <Route path="partner/register" element={<PartnerRegister />} />
-          <Route path="partner/dashboard" element={<RequireAuth role="partner"><PartnerDashboard /></RequireAuth>} />
           <Route path="admin" element={<RequireAuth role="admin"><AdminDashboard /></RequireAuth>} />
           <Route path="403" element={<Forbidden />} />
           <Route path="*" element={<NotFound />} />
+        </Route>
+        <Route element={<PartnerShell />}>
+          <Route path="partner/register" element={<PartnerRegister />} />
+          <Route path="partner/login" element={<Auth mode="login" partner defaultNext="/partner/dashboard" />} />
+          <Route path="partner/dashboard" element={<RequireAuth role="partner" loginPath="/partner/login"><PartnerDashboard /></RequireAuth>} />
         </Route>
       </Routes>
     </Suspense>

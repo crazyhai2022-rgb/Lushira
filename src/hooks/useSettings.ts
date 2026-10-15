@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 
-export interface Settings { radiusKm: number; taxPercent: number; platformFee: number; cashEnabled: boolean; onlineEnabled: boolean; cancelHours: number; areaLabel: string; raw: Record<string, unknown> }
+export interface Settings { radiusKm: number; taxPercent: number; platformFee: number; cashEnabled: boolean; onlineEnabled: boolean; cancelHours: number; areaLabel: string; razorpayKeyId: string; raw: Record<string, unknown> }
 
 export function useSettings(): Settings {
   const { data } = useQuery({
@@ -22,6 +22,7 @@ export function useSettings(): Settings {
     onlineEnabled: s.online_payments_enabled !== false,
     cancelHours: Number(s.cancellation_window_hours ?? 4),
     areaLabel: String(s.service_area_label ?? ''),
+    razorpayKeyId: typeof s.razorpay_key_id === 'string' ? s.razorpay_key_id : '',
     raw: s,
   }
 }

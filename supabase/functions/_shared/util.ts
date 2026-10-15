@@ -19,9 +19,18 @@ export async function getUser(req: Request) {
   return error ? null : data.user
 }
 
-export function razorpayCreds() {
-  const id = Deno.env.get('RAZORPAY_KEY_ID'), secret = Deno.env.get('RAZORPAY_KEY_SECRET')
+/** Credentials entered in Admin → Payments (DB), falling back to function env secrets. */
+export async function razorpayCreds() {
+  const db = admin()
+  const { data: s } = await db.from('app_settings').select('value').eq('key', 'razorpay_key_id').maybeSingle()
+  const { data: sec } = await db.from('payment_secrets').select('value').eq('key', 'razorpay_key_secret').maybeSingle()
+  const id = (typeof s?.value === 'string' && s.value) || Deno.env.get('RAZORPAY_KEY_ID')
+  const secret = sec?.value || Deno.env.get('RAZORPAY_KEY_SECRET')
   return id && secret ? { id, secret, auth: 'Basic ' + btoa(`${id}:${secret}`) } : null
+}
+export async function webhookSecret() {
+  const { data } = await admin().from('payment_secrets').select('value').eq('key', 'razorpay_webhook_secret').maybeSingle()
+  return data?.value || Deno.env.get('RAZORPAY_WEBHOOK_SECRET') || null
 }
 
 const enc = new TextEncoder()

@@ -146,7 +146,10 @@ function Footer() {
 
 export default function Layout() {
   const { pathname } = useLocation()
+  const { loading, isPartner, isAdmin } = useAuth()
   useEffect(() => { window.scrollTo({ top: 0 }) }, [pathname])
+  // Partners get their own portal; the customer website is not shown to them.
+  if (!loading && isPartner && !isAdmin) return <Navigate to="/partner/dashboard" replace />
   return (
     <div className="flex min-h-screen flex-col">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[200] focus:rounded-lg focus:bg-white focus:px-3 focus:py-2">Skip to content</a>
@@ -159,11 +162,11 @@ export default function Layout() {
   )
 }
 
-export function RequireAuth({ role, children }: { role?: 'admin' | 'partner'; children: React.ReactNode }) {
+export function RequireAuth({ role, children, loginPath = '/login' }: { role?: 'admin' | 'partner'; children: React.ReactNode; loginPath?: string }) {
   const { user, loading, isAdmin, isPartner } = useAuth()
   const { pathname, search } = useLocation()
   if (loading) return <div className="flex h-[50vh] items-center justify-center text-lush-600"><Spinner className="h-8 w-8" /></div>
-  if (!user) return <Navigate to={`/login?next=${encodeURIComponent(pathname + search)}`} replace />
+  if (!user) return <Navigate to={`${loginPath}?next=${encodeURIComponent(pathname + search)}`} replace />
   if (role === 'admin' && !isAdmin) return <Navigate to="/403" replace />
   if (role === 'partner' && !isPartner) return <Navigate to="/partner" replace />
   return <>{children}</>

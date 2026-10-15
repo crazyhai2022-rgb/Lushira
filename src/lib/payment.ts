@@ -1,4 +1,4 @@
-import { supabase, env } from './supabase'
+import { supabase } from './supabase'
 
 declare global {
   interface Window { Razorpay?: new (opts: Record<string, unknown>) => { open: () => void; on: (ev: string, cb: (r: unknown) => void) => void } }
@@ -34,7 +34,7 @@ export async function payForBooking(bookingId: string, prefill: { name?: string;
   await loadCheckout()
   return new Promise<PayResult>((resolve) => {
     const rzp = new window.Razorpay!({
-      key: order.key_id || env.razorpayKeyId,
+      key: order.key_id,
       order_id: order.order_id,
       amount: order.amount,
       currency: order.currency,
