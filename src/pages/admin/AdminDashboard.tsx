@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { BadgeCheck, Check, Eye, EyeOff, Flag, X } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import { supabase, publicUrl } from '../../lib/supabase'
 import { friendlyError } from '../../lib/errors'
 import { fmtDateTime, inr, statusLabel } from '../../lib/format'
 import { useToast } from '../../context/ToastContext'
@@ -57,20 +57,21 @@ function Overview({ go }: { go: (t: Tab) => void }) {
   return <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">{cards.map(([l, v, t]) => <button key={l} onClick={() => go(t)} className="card p-4 text-left hover:shadow-md"><p className="font-display text-3xl font-semibold">{v ?? '…'}</p><p className="text-xs text-muted">{l}</p></button>)}</div>
 }
 
-interface SalonRow { id: string; name: string; status: string; area: string | null; city: string | null; contact_phone: string | null; contact_email: string | null; created_at: string; featured: boolean; verified: boolean; rejection_reason: string | null; address_line: string | null }
+interface SalonRow { id: string; name: string; status: string; area: string | null; city: string | null; contact_phone: string | null; contact_email: string | null; created_at: string; featured: boolean; verified: boolean; is_brand: boolean; brand_name: string | null; brand_logo_url: string | null; brand_verified: boolean; rejection_reason: string | null; address_line: string | null }
 function Salons() {
   const qc = useQueryClient()
   const toast = useToast()
   const [filter, setFilter] = useState('pending')
   const [dec, setDec] = useState<{ id: string; decision: 'rejected' | 'suspended'; name: string } | null>(null)
   const [reason, setReason] = useState('')
-  const q = useQuery({ queryKey: ['a-salons'], queryFn: async () => { const r = await supabase.from('salons').select('id,name,status,area,city,contact_phone,contact_email,created_at,featured,verified,rejection_reason,address_line').order('created_at', { ascending: false }).limit(200); if (r.error) throw r.error; return r.data as SalonRow[] } })
+  const q = useQuery({ queryKey: ['a-salons'], queryFn: async () => { const r = await supabase.from('salons').select('id,name,status,area,city,contact_phone,contact_email,created_at,featured,verified,is_brand,brand_name,brand_logo_url,brand_verified,rejection_reason,address_line').order('created_at', { ascending: false }).limit(200); if (r.error) throw r.error; return r.data as SalonRow[] } })
   const review = useMutation({
     mutationFn: async (p: { id: string; decision: string; reason?: string }) => { const r = await supabase.rpc('admin_review_salon', { p_salon_id: p.id, p_decision: p.decision, p_reason: p.reason ?? null }); if (r.error) throw r.error },
     onSuccess: () => { setDec(null); setReason(''); toast.success('Updated.'); void qc.invalidateQueries({ queryKey: ['a-salons'] }) }, onError: (e) => toast.error(friendlyError(e)),
   })
   const feature = useMutation({ mutationFn: async (s: SalonRow) => { const r = await supabase.from('salons').update({ featured: !s.featured }).eq('id', s.id); if (r.error) throw r.error }, onSuccess: () => void qc.invalidateQueries({ queryKey: ['a-salons'] }), onError: (e) => toast.error(friendlyError(e)) })
   const verify = useMutation({ mutationFn: async (s: SalonRow) => { const r = await supabase.from('salons').update({ verified: !s.verified }).eq('id', s.id); if (r.error) throw r.error; return !s.verified }, onSuccess: (v) => { toast.success(v ? 'Salon verified — blue tick added.' : 'Verification removed.'); void qc.invalidateQueries({ queryKey: ['a-salons'] }) }, onError: (e) => toast.error(friendlyError(e)) })
+  const brandVerify = useMutation({ mutationFn: async (s: SalonRow) => { const r = await supabase.from('salons').update({ brand_verified: !s.brand_verified }).eq('id', s.id); if (r.error) throw r.error; return !s.brand_verified }, onSuccess: (v) => { toast.success(v ? 'Brand verified — it will show on the home page once the salon is approved.' : 'Brand verification removed.'); void qc.invalidateQueries({ queryKey: ['a-salons'] }) }, onError: (e) => toast.error(friendlyError(e)) })
   const list = (q.data ?? []).filter((s) => filter === 'all' || s.status === filter)
   return (
     <div>
@@ -80,6 +81,12 @@ function Salons() {
           <li key={s.id} className="card p-4 text-sm"><div className="flex flex-wrap items-start justify-between gap-2">
             <div><p className="font-semibold">{s.name} {s.verified && <VerifiedBadge className="h-5 w-5" />}</p><p className="text-muted">{[s.address_line, s.area, s.city].filter(Boolean).join(', ')}</p><p className="text-xs text-muted">{s.contact_phone} · {s.contact_email} · applied {fmtDateTime(s.created_at)}</p>{s.rejection_reason && <p className="text-xs text-red-600">Reason: {s.rejection_reason}</p>}</div>
             <div className="flex items-center gap-2">{s.featured && <span className="chip">Featured</span>}<span className="chip capitalize">{s.status}</span></div></div>
+            {s.is_brand && (
+              <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl bg-blush-50 p-3">
+                {s.brand_logo_url ? <img src={publicUrl(s.brand_logo_url)!} alt="" className="h-12 w-12 rounded-xl border border-line bg-white object-contain" /> : <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-blush-300 text-[10px] text-muted">No logo</span>}
+                <div className="min-w-0 flex-1"><p className="text-xs text-muted">Partner says this is a company / brand</p><p className="font-semibold">{s.brand_name}</p></div>
+                <label className="flex cursor-pointer items-center gap-2 text-sm font-medium"><input type="checkbox" className="h-5 w-5 accent-lush-600" checked={s.brand_verified} disabled={brandVerify.isPending} onChange={() => brandVerify.mutate(s)} />Brand verified</label>
+              </div>)}
             <div className="mt-3 flex flex-wrap gap-2">
               {['pending', 'rejected', 'suspended'].includes(s.status) && <button className="btn btn-primary btn-sm" disabled={review.isPending} onClick={() => review.mutate({ id: s.id, decision: 'approved' })}><Check className="h-4 w-4" />Approve</button>}
               {['pending', 'approved'].includes(s.status) && <button className="btn btn-outline btn-sm" onClick={() => setDec({ id: s.id, decision: 'rejected', name: s.name })}><X className="h-4 w-4" />Reject</button>}

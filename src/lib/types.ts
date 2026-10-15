@@ -78,6 +78,10 @@ export interface Salon {
   rejection_reason: string | null
   featured: boolean
   verified?: boolean
+  is_brand?: boolean
+  brand_name?: string | null
+  brand_logo_url?: string | null
+  brand_verified?: boolean
   home_service: boolean
   appointment_required: boolean
   walk_in: boolean

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, CalendarCheck, Heart, LocateFixed, MapPin, Navigation, Search, Store } from 'lucide-react'
-import { getBanners, getBrands, getCategories, getNearbySalons, getSalonList, searchServices } from '../lib/api'
+import { getBanners, getBrandSalons, getBrands, getCategories, getNearbySalons, getSalonList, searchServices } from '../lib/api'
 import { CategoryCard, SalonCard, ServiceCard } from '../components/cards'
 import { CardSkeletonGrid, EmptyState, ErrorState, SectionHeader, Skeleton } from '../components/ui'
 import { usePlace } from '../context/LocationContext'
@@ -82,6 +82,26 @@ function Shortcuts() {
   )
 }
 
+function BrandStrip() {
+  const q = useQuery({ queryKey: ['brand-salons'], queryFn: getBrandSalons, staleTime: 5 * 60 * 1000 })
+  if (!q.data?.length) return null
+  return (
+    <section aria-label="Shop by brands" className="-mt-4 rounded-3xl bg-gradient-to-br from-blush-100 via-blush-50 to-white p-4 sm:p-5">
+      <h2 className="mb-3 font-display text-xl font-semibold sm:text-2xl">Shop by brands</h2>
+      <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2">
+        {q.data.map((b) => (
+          <Link key={b.id} to={`/salon/${b.slug}`} className="group w-24 shrink-0 text-center sm:w-28">
+            <span className="flex aspect-square items-center justify-center overflow-hidden rounded-[1.6rem] border border-blush-200 bg-white p-2.5 shadow-sm transition group-hover:-translate-y-0.5 group-hover:shadow-md">
+              <img src={publicUrl(b.brand_logo_url)!} alt="" loading="lazy" className="h-full w-full object-contain" />
+            </span>
+            <span className="mt-2 line-clamp-2 block text-xs font-medium text-plum-800 sm:text-sm">{b.brand_name}</span>
+          </Link>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export default function Home() {
   const loc = usePlace()
   const cart = useCart()
@@ -108,6 +128,7 @@ export default function Home() {
       <Hero />
       <div className="container-x space-y-12 py-8">
         <Shortcuts />
+        <BrandStrip />
         {!place && <LocationPrompt />}
 
         <section>

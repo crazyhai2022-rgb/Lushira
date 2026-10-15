@@ -86,6 +86,14 @@ export async function searchServices(p: ServiceSearch): Promise<ServiceHit[]> {
   ) as ServiceHit[]
 }
 
+export interface BrandSalon { id: string; slug: string; name: string; brand_name: string; brand_logo_url: string }
+/** Admin-verified company/brand salons shown in the home page brand strip. */
+export async function getBrandSalons(): Promise<BrandSalon[]> {
+  const r = await supabase.from('salons').select('id,slug,name,brand_name,brand_logo_url').eq('status', 'approved').eq('is_brand', true).eq('brand_verified', true).not('brand_logo_url', 'is', null).order('featured', { ascending: false }).order('brand_name').limit(30)
+  if (r.error) throw new Error(r.error.message)
+  return (r.data ?? []) as BrandSalon[]
+}
+
 export async function getBrands(): Promise<Brand[]> {
   return ok(await supabase.from('brands').select('id,name,slug,logo_url,description,brand_services(id,name,price_inr,description)').eq('is_active', true).order('name'))
 }

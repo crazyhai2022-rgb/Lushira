@@ -1,10 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, CheckCircle2, Clock, Crosshair, XCircle } from 'lucide-react'
+import { Check, CheckCircle2, Clock, Crosshair, Upload, XCircle } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
-import { supabase } from '../../lib/supabase'
+import { supabase, publicUrl } from '../../lib/supabase'
 import { friendlyError } from '../../lib/errors'
 import { isEmail, normalizePhone } from '../../lib/format'
 import { reverseGeocodeAddress, searchPlaces, type PlaceHit } from '../../lib/geocode'
@@ -12,7 +12,7 @@ import { Field, PageHero, Skeleton, Spinner } from '../../components/ui'
 import MapView from '../../components/MapView'
 import MobileAccount from '../../components/MobileAccount'
 import { realEmail } from '../../lib/mobileAuth'
-import { HoursEditor, PhotosEditor, ServicesEditor } from './editors'
+import { HoursEditor, PhotosEditor, ServicesEditor, uploadSalonImage } from './editors'
 import type { Salon } from '../../lib/types'
 
 const STEPS = ['Account', 'Salon info', 'Location', 'Services', 'Hours & photos', 'Review']
@@ -110,6 +110,9 @@ function InfoStep({ salon, onDone }: { salon: Salon | null; onDone: () => void }
   const [f, setF] = useState({ name: salon?.name ?? '', business_type: salon?.business_type ?? 'Salon', description: salon?.description ?? '', contact_phone: salon?.contact_phone ?? '', contact_email: salon?.contact_email ?? realEmail(user?.email), home_service: salon?.home_service ?? false, capacity: String(salon?.concurrent_capacity ?? 1), appointment_required: salon?.appointment_required ?? true, walk_in: salon?.walk_in ?? false, owner_name: profile?.full_name ?? '' })
   const [err, setErr] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+  const [brand, setBrand] = useState({ on: !!salon?.is_brand, name: salon?.brand_name ?? '' })
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const logoPreview = useMemo(() => (logoFile ? URL.createObjectURL(logoFile) : publicUrl(salon?.brand_logo_url) ?? null), [logoFile, salon?.brand_logo_url])
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     const er: Record<string, string> = {}
@@ -120,12 +123,21 @@ function InfoStep({ salon, onDone }: { salon: Salon | null; onDone: () => void }
     const cap = Number(f.capacity)
     if (!(cap >= 1 && cap <= 50)) er.cap = 'Between 1 and 50'
     if (f.owner_name.trim().length < 2) er.owner = 'Enter the owner name'
+    if (brand.on && brand.name.trim().length < 2) er.brand = 'Enter your brand / company name'
+    if (brand.on && !logoFile && !salon?.brand_logo_url) er.brandLogo = 'Upload your brand logo'
     setErr(er)
     if (Object.keys(er).length) return
     setBusy(true)
-    const row = { name: f.name.trim(), business_type: f.business_type, description: f.description.trim() || null, contact_phone: ph, contact_email: f.contact_email.trim() || null, home_service: true, concurrent_capacity: cap, appointment_required: true, walk_in: false }
+    const row = { name: f.name.trim(), business_type: f.business_type, description: f.description.trim() || null, contact_phone: ph, contact_email: f.contact_email.trim() || null, is_brand: brand.on, brand_name: brand.on ? brand.name.trim() : null, home_service: true, concurrent_capacity: cap, appointment_required: true, walk_in: false }
     const r = salon ? await supabase.from('salons').update(row).eq('id', salon.id).select('id').single() : await supabase.from('salons').insert({ ...row, owner_id: user!.id }).select('id').single()
     if (r.error) { setBusy(false); return toast.error(friendlyError(r.error)) }
+    if (brand.on && logoFile) {
+      try {
+        const path = await uploadSalonImage(r.data.id, logoFile, 'brand')
+        const lr = await supabase.from('salons').update({ brand_logo_url: path }).eq('id', r.data.id)
+        if (lr.error) throw lr.error
+      } catch (e) { setBusy(false); return toast.error(friendlyError(e)) }
+    }
     const p = await supabase.from('salon_private').upsert({ salon_id: r.data.id, owner_name: f.owner_name.trim(), owner_phone: ph, owner_email: realEmail(user?.email) || null })
     setBusy(false)
     if (p.error) return toast.error(friendlyError(p.error))
@@ -141,6 +153,20 @@ function InfoStep({ salon, onDone }: { salon: Salon | null; onDone: () => void }
       <Field label="Contact email" error={err.email}><input className="input" type="email" value={f.contact_email} onChange={(e) => setF({ ...f, contact_email: e.target.value })} /></Field>
       <Field label="Customers served at the same time" error={err.cap} hint="Chairs / beauticians that can work in parallel."><input className="input" inputMode="numeric" value={f.capacity} onChange={(e) => setF({ ...f, capacity: e.target.value.replace(/\D/g, '') })} /></Field>
       <div className="sm:col-span-2"><Field label="About your salon"><textarea className="input min-h-24" maxLength={500} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Experience, specialities, what makes you special…" /></Field></div>
+      <div className="space-y-3 rounded-xl border border-blush-300 p-3 sm:col-span-2">
+        <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" className="h-4 w-4 accent-lush-600" checked={brand.on} onChange={(e) => setBrand({ ...brand, on: e.target.checked })} />We are a company / brand</label>
+        {brand.on && (
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+            <Field label="Brand / company name" required error={err.brand}><input className="input" maxLength={80} value={brand.name} onChange={(e) => setBrand({ ...brand, name: e.target.value })} placeholder="e.g. Lakme Salon" /></Field>
+            <Field label="Brand logo" required error={err.brandLogo}>
+              <label className="flex h-20 w-28 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-blush-300 bg-blush-50 text-xs text-muted hover:border-lush-400">
+                {logoPreview ? <img src={logoPreview} alt="Brand logo" className="h-full w-full object-contain" /> : <span className="flex flex-col items-center"><Upload className="h-5 w-5" />Upload</span>}
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const x = e.target.files?.[0]; if (x) setLogoFile(x); e.target.value = '' }} />
+              </label>
+            </Field>
+            <p className="text-xs text-muted sm:col-span-2">Our team checks your brand during review. Once verified, your brand logo and name appear on the Lushira home page.</p>
+          </div>)}
+      </div>
       <p className="rounded-xl bg-blush-100 p-3 text-xs text-muted sm:col-span-2">Lushira is an at-home beauty service: your beauticians travel to the customer. Customers book a date and time slot online.</p>
       <div className="sm:col-span-2"><Nav onNext={() => void submit(new Event('submit') as unknown as FormEvent)} busy={busy} nextLabel="Save & continue" /></div>
     </form>
