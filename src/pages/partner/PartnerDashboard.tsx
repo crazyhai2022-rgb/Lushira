@@ -142,7 +142,7 @@ function Overview({ salon, go }: { salon: Salon; go: (t: Tab) => void }) {
 
 const STATUS_META: { k: string; l: string; c: string; match: (b: Booking) => boolean }[] = [
   { k: 'done', l: 'Completed', c: '#16a34a', match: (b) => b.status === 'completed' },
-  { k: 'live', l: 'Live / upcoming', c: '#c4416f', match: (b) => LIVE.includes(b.status) },
+  { k: 'live', l: 'Live / upcoming', c: '#215f47', match: (b) => LIVE.includes(b.status) },
   { k: 'new', l: 'New request', c: '#f59e0b', match: (b) => b.status === 'pending' },
   { k: 'lost', l: 'Cancelled / rejected', c: '#94a3b8', match: (b) => ['cancelled', 'rejected', 'no_show'].includes(b.status) },
 ]
@@ -191,8 +191,8 @@ function Charts({ bookings, loading }: { bookings: Booking[]; loading: boolean }
         <h3 className="font-display text-lg font-semibold">Orders — last 14 days</h3>
         <svg viewBox={`0 0 ${W} ${H + 12}`} className="mt-3 w-full" role="img" aria-label="Orders per day">
           {[0, 0.5, 1].map((g) => <line key={g} x1="8" x2={W - 8} y1={H - 10 - g * (H - 24)} y2={H - 10 - g * (H - 24)} stroke="currentColor" className="text-line" strokeWidth="0.6" />)}
-          <path d={area} fill="#c4416f" opacity="0.12" /><path d={line} fill="none" stroke="#c4416f" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-          {pts.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="2.6" fill="#c4416f"><title>{`${d.perDay[i].day}: ${d.perDay[i].orders} order(s)`}</title></circle>)}
+          <path d={area} fill="#215f47" opacity="0.12" /><path d={line} fill="none" stroke="#215f47" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+          {pts.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="2.6" fill="#215f47"><title>{`${d.perDay[i].day}: ${d.perDay[i].orders} order(s)`}</title></circle>)}
           {d.perDay.map((x, i) => (i % 2 === 0 ? <text key={x.day} x={pts[i][0]} y={H + 8} textAnchor="middle" fontSize="8" fill="currentColor" className="text-muted">{x.label}</text> : null))}
         </svg>
         <p className="text-xs text-muted">Busiest day: <strong>{maxOrd} order{maxOrd > 1 ? 's' : ''}</strong></p>

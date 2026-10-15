@@ -14,7 +14,7 @@ const pin = (color: string, glyph: string) =>
     popupAnchor: [0, -36],
     html: `<div style="width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};box-shadow:0 3px 8px rgba(60,15,41,.35);display:flex;align-items:center;justify-content:center;border:2px solid #fff"><span style="transform:rotate(45deg);color:#fff;font-size:15px;font-weight:700">${glyph}</span></div>`,
   })
-const icons = { salon: pin('#c4416f', '✂'), user: pin('#3c0f29', '●'), provider: pin('#0f9d58', '➜'), home: pin('#3c0f29', '⌂') }
+const icons = { salon: pin('#215f47', '✂'), user: pin('#10291f', '●'), provider: pin('#0f9d58', '➜'), home: pin('#10291f', '⌂') }
 
 function Fit({ markers, center, zoom }: { markers: MapMarker[]; center: [number, number]; zoom: number }) {
   const map = useMap()
@@ -43,7 +43,7 @@ export default function MapView({ center, markers, zoom = 14, height = 320, radi
         <TileLayer url={tile.url} attribution={tile.attribution} zoomOffset={tile.zoomOffset} tileSize={tile.tileSize} />
         {onPick && <Tap onPick={onPick} />}
         <Fit markers={markers} center={center} zoom={zoom} />
-        {radiusKm && <Circle center={center} radius={radiusKm * 1000} pathOptions={{ color: '#c4416f', weight: 1, fillOpacity: 0.05 }} />}
+        {radiusKm && <Circle center={center} radius={radiusKm * 1000} pathOptions={{ color: '#215f47', weight: 1, fillOpacity: 0.05 }} />}
         {markers.map((m) => (
           <Marker key={m.id} position={[m.lat, m.lng]} icon={icons[m.kind ?? 'salon']}>
             <Popup>

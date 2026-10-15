@@ -21,12 +21,12 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, { 
   render() {
     if (!this.state.err) return this.props.children
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center', fontFamily: 'system-ui, sans-serif', background: '#fff7f9', color: '#3c0f29' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center', fontFamily: 'system-ui, sans-serif', background: '#e8f1ec', color: '#10291f' }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700 }}>Something went wrong</h1>
           <p style={{ margin: '8px 0 16px', fontSize: 14, opacity: .75 }}>The page could not load. Tap refresh to load the latest version.</p>
           <p style={{ margin: '0 0 14px', fontSize: 11, opacity: .5, maxWidth: 420 }}>{String(this.state.err?.message ?? '').slice(0, 160)}</p>
-          <button onClick={() => void this.refresh()} style={{ background: '#c4416f', color: '#fff', border: 0, borderRadius: 999, padding: '10px 22px', fontWeight: 600 }}>Refresh</button>
+          <button onClick={() => void this.refresh()} style={{ background: '#215f47', color: '#fff', border: 0, borderRadius: 999, padding: '10px 22px', fontWeight: 600 }}>Refresh</button>
         </div>
       </div>)
   }

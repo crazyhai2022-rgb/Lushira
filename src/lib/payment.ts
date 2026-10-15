@@ -41,7 +41,7 @@ export async function payForBooking(bookingId: string, prefill: { name?: string;
       name: 'Lushira',
       description: 'Beauty service booking',
       prefill,
-      theme: { color: '#c4416f' },
+      theme: { color: '#215f47' },
       modal: { ondismiss: () => resolve('dismissed') },
       handler: async (resp: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
         const v = await supabase.functions.invoke('razorpay-verify', { body: { booking_id: bookingId, ...resp } })

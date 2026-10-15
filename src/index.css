@@ -7,23 +7,23 @@
   --font-display: "Playfair Display", Georgia, serif;
   --font-script: "Dancing Script", cursive;
 
-  --color-blush-50: #fff8f9;
-  --color-blush-100: #fdeef2;
-  --color-blush-200: #fadce5;
-  --color-blush-300: #f4c3d3;
-  --color-lush-400: #ea7aa1;
-  --color-lush-500: #dc5a88;
-  --color-lush-600: #c4416f;
-  --color-lush-700: #a3305a;
-  --color-plum-950: #2e0b1f;
-  --color-plum-900: #3c0f29;
-  --color-plum-800: #4e1636;
-  --color-plum-700: #63204a;
+  --color-blush-50: #e8f1ec;
+  --color-blush-100: #d9e9e0;
+  --color-blush-200: #c6dcd0;
+  --color-blush-300: #a9c9b8;
+  --color-lush-400: #3f8f6c;
+  --color-lush-500: #2d7456;
+  --color-lush-600: #215f47;
+  --color-lush-700: #184a37;
+  --color-plum-950: #0b1f17;
+  --color-plum-900: #10291f;
+  --color-plum-800: #1a3d2d;
+  --color-plum-700: #245240;
   --color-gold-300: #e6c9ad;
   --color-gold-500: #c4936a;
-  --color-ink: #2b1c24;
-  --color-muted: #7b6a73;
-  --color-line: #f1dde4;
+  --color-ink: #14261d;
+  --color-muted: #546a5f;
+  --color-line: #c9dcd1;
   --color-logo: #211813;
 }
 
@@ -61,7 +61,7 @@ h1, h2, h3, .font-display { font-family: var(--font-serif); color: var(--color-p
 }
 
 .skeleton {
-  background: linear-gradient(90deg, #f8e6ec 25%, #fdf3f6 50%, #f8e6ec 75%);
+  background: linear-gradient(90deg, #d3e4da 25%, #e4eFe8 50%, #d3e4da 75%);
   background-size: 200% 100%;
   animation: shimmer 1.3s infinite;
 }
