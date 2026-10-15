@@ -1,18 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { BadgeCheck, Check, Clock, MapPin, Navigation, PartyPopper, Phone } from 'lucide-react'
+import { Check, Clock, MapPin, Navigation, Phone, Radio } from 'lucide-react'
 import { getBooking, getMyBookings } from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { fmtDateTime, fmtTime, inr } from '../lib/format'
-import { EmptyState, ErrorState, PageHero, Skeleton, Spinner, StarInput } from '../components/ui'
-import { useAuth } from '../context/AuthContext'
+import { EmptyState, ErrorState, PageHero, Skeleton } from '../components/ui'
 import { useToast } from '../context/ToastContext'
-import { friendlyError } from '../lib/errors'
 import { ACTIVE, CANCELLABLE, PayBadge, StatusBadge, useCancelBooking } from '../components/booking'
 import MapView, { type MapMarker } from '../components/MapView'
 import BookingChat, { CHAT_STATUSES, ChatButton } from '../components/BookingChat'
-import type { Booking, BookingStatus } from '../lib/types'
+import type { BookingStatus } from '../lib/types'
 
 const HOME_FLOW: BookingStatus[] = ['pending', 'confirmed', 'provider_assigned', 'on_the_way', 'in_progress', 'completed']
 const SALON_FLOW: BookingStatus[] = ['pending', 'confirmed', 'in_progress', 'completed']
@@ -48,10 +46,10 @@ export default function Tracking() {
   const [loc, setLoc] = useState<Loc | null>(null)
   const [chatOpen, setChatOpen] = useState(false)
   const [, tick] = useState(0)
-  useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 30_000); return () => clearInterval(t) }, [])
-  const bq = useQuery({ queryKey: ['booking', id], queryFn: () => getBooking(id) })
+  useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 15_000); return () => clearInterval(t) }, [])
+  const bq = useQuery({ queryKey: ['booking', id], queryFn: () => getBooking(id), refetchInterval: (q) => (q.state.data && ACTIVE.includes(q.state.data.status) ? 8000 : false), refetchOnWindowFocus: true })
   const hist = useQuery({
-    queryKey: ['history', id],
+    queryKey: ['history', id], refetchInterval: bq.data && ACTIVE.includes(bq.data.status) ? 8000 : false,
     queryFn: async () => {
       const r = await supabase.from('booking_status_history').select('status,created_at').eq('booking_id', id).order('created_at')
       if (r.error) throw r.error
@@ -89,6 +87,7 @@ export default function Tracking() {
     void supabase.from('provider_locations').select('lat,lng,recorded_at').eq('booking_id', id).maybeSingle().then((r) => { if (r.data && r.data.lat != null) setLoc(r.data as Loc) })
   }, [id, trackable])
 
+  if (b?.status === 'completed' && !b.reviews?.length) return <Navigate to={`/thank-you/${id}`} replace />
   if (bq.isLoading) return <div className="container-x py-8"><Skeleton className="h-96" /></div>
   if (bq.isError) return <div className="container-x py-8"><ErrorState onRetry={() => bq.refetch()} /></div>
   if (!b) return <div className="container-x py-8"><EmptyState title="Booking not found" action={<Link to="/orders" className="btn btn-primary btn-sm">My orders</Link>} /></div>
@@ -118,10 +117,8 @@ export default function Tracking() {
       <Link to="/orders" className="text-sm text-lush-600 hover:underline">← My orders</Link>
       <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
         <div><h1 className="text-2xl font-semibold sm:text-3xl">{b.salons?.name}</h1><p className="text-sm text-muted">#{b.reference} · {fmtDateTime(b.scheduled_start)}</p></div>
-        <div className="flex gap-2"><StatusBadge status={b.status} /><PayBadge status={b.payment_status} /></div>
+        <div className="flex flex-wrap items-center gap-2">{ACTIVE.includes(b.status) && <span className="chip bg-green-100 text-green-800"><Radio className="h-3.5 w-3.5 animate-pulse" />Live</span>}<StatusBadge status={b.status} /><PayBadge status={b.payment_status} /></div>
       </div>
-
-      {b.status === 'completed' && <ThankYou b={b} onDone={() => { void qc.invalidateQueries({ queryKey: ['booking', id] }); void qc.invalidateQueries({ queryKey: ['bookings'] }) }} />}
 
       <div className="mt-6 grid gap-6 md:grid-cols-[1fr_1.2fr]">
         <section className="card p-5" aria-label="Status timeline">
@@ -161,9 +158,11 @@ export default function Tracking() {
           <div className="card space-y-2 p-4 text-sm">
             <p className="font-semibold">Contact</p>
             {contact.data?.provider_name && <p>Your beautician: {contact.data.provider_name}</p>}
-            {contact.data?.salon_phone ? <a className="btn btn-primary btn-sm" href={`tel:${contact.data.salon_phone}`}><Phone className="h-4 w-4" />Call {contact.data.salon_name}</a> : <p className="text-muted">Salon contact number not available.</p>}
-            {CHAT_STATUSES.includes(b.status) && <ChatButton bookingId={b.id} onOpen={() => setChatOpen(true)} className="btn btn-outline btn-sm ml-2" />}
-            {CANCELLABLE.includes(b.status) && <button className="btn btn-ghost btn-sm" onClick={() => cancel.ask(b.id)}>Cancel booking</button>}
+            <div className="flex flex-wrap items-center gap-2">
+              {contact.data?.salon_phone ? <a className="btn btn-primary btn-sm" href={`tel:${contact.data.salon_phone}`}><Phone className="h-4 w-4" />Call {contact.data.provider_name ?? contact.data.salon_name}</a> : <p className="text-muted">Salon contact number not available.</p>}
+              {CHAT_STATUSES.includes(b.status) && <ChatButton bookingId={b.id} onOpen={() => setChatOpen(true)} className="btn btn-outline btn-sm" />}
+              {CANCELLABLE.includes(b.status) && <button className="btn btn-ghost btn-sm" onClick={() => cancel.ask(b.id)}>Cancel booking</button>}
+            </div>
           </div>
         </section>
       </div>
@@ -173,49 +172,11 @@ export default function Tracking() {
   )
 }
 
-/** Shown once the partner marks the service done: thank-you + a genuine rating (only the customer of this completed booking can rate). */
-function ThankYou({ b, onDone }: { b: Booking; onDone: () => void }) {
-  const { user } = useAuth()
-  const toast = useToast()
-  const [rating, setRating] = useState(5)
-  const [comment, setComment] = useState('')
-  const [busy, setBusy] = useState(false)
-  const done = b.reviews?.[0]
-  const submit = async () => {
-    setBusy(true)
-    const r = await supabase.from('reviews').insert({ booking_id: b.id, customer_id: user!.id, salon_id: b.salon_id, rating, comment: comment.trim() || null })
-    setBusy(false)
-    if (r.error) return toast.error(friendlyError(r.error))
-    toast.success('Thanks for your review!'); onDone()
-  }
-  return (
-    <section className="card mt-6 overflow-hidden text-center">
-      <div className="bg-gradient-to-r from-lush-600 to-plum-700 px-5 py-6 text-white">
-        <PartyPopper className="mx-auto h-9 w-9" />
-        <h2 className="mt-2 font-display text-2xl font-semibold">Service done — thank you!</h2>
-        <p className="text-sm opacity-90">We hope you loved your experience with {b.salons?.name}.</p>
-      </div>
-      <div className="p-5">
-        {done ? (
-          <p className="font-medium">You rated this service {done.rating}★. Thank you for your feedback!</p>
-        ) : (
-          <div className="mx-auto max-w-sm space-y-3 text-left">
-            <p className="text-center font-semibold">How was your service?</p>
-            <div className="flex justify-center"><StarInput value={rating} onChange={setRating} /></div>
-            <textarea className="input min-h-24" maxLength={1000} placeholder="Tell others about your experience (optional)" value={comment} onChange={(e) => setComment(e.target.value)} />
-            <p className="flex items-center justify-center gap-1 text-xs text-muted"><BadgeCheck className="h-4 w-4 text-sky-500" />Verified booking — only customers who completed a service can review.</p>
-            <button className="btn btn-primary w-full" disabled={busy} onClick={() => void submit()}>{busy ? <Spinner /> : 'Submit review'}</button>
-          </div>)}
-        <div className="mt-4 flex flex-wrap justify-center gap-2"><Link to="/orders" className="btn btn-outline btn-sm">My orders</Link><Link to="/" className="btn btn-ghost btn-sm">Back to home</Link></div>
-      </div>
-    </section>
-  )
-}
-
-/** Rough arrival time: ~7.5–10 min per km in city traffic (2 km → 15–20 min). */
+/** Rough arrival time in city traffic: ~7.5–10 min per km (2 km → 15–20 min), never less than 10 min once you are more than ~1 km away. */
 function etaFor(km: number): { text: string; at: string } {
   if (km < 0.15) return { text: 'Arriving now', at: '' }
-  const lo = Math.max(3, Math.round(km * 7.5)), hi = Math.max(lo + 3, Math.round(km * 10))
+  const lo = km < 0.8 ? 5 : Math.max(10, Math.round(km * 7.5))
+  const hi = km < 0.8 ? 10 : Math.max(lo + 5, Math.round(km * 10))
   const at = fmtTime(new Date(Date.now() + ((lo + hi) / 2) * 60_000).toISOString())
   return { text: `Arrives in ${lo}–${hi} min`, at }
 }

@@ -137,6 +137,7 @@ function nextStep(b: Booking): { to: BookingStatus; label: string } | null {
   if (b.status === 'confirmed') return home ? { to: 'provider_assigned', label: 'Beautician assigned' } : { to: 'in_progress', label: 'Start service' }
   if (b.status === 'provider_assigned') return { to: 'on_the_way', label: "I'm on the way" }
   if (b.status === 'on_the_way') return { to: 'in_progress', label: 'Start service' }
+  if (b.status === 'in_progress' && b.payment_method === 'razorpay' && b.payment_status !== 'paid') return null
   if (b.status === 'in_progress') return { to: 'completed', label: b.payment_status === 'cash_due' ? 'Cash received & complete' : 'Mark completed' }
   return null
 }
@@ -177,6 +178,7 @@ function Bookings({ salon }: { salon: Salon }) {
                   <a className="inline-flex items-center gap-1 text-lush-600" href={`tel:${b.customer_phone}`}><Phone className="h-4 w-4" />{b.customer_phone}</a>
                   {b.mode === 'home' && b.address && <a className="inline-flex items-center gap-1 text-lush-600" target="_blank" rel="noopener noreferrer" href={b.address.lat != null ? `https://www.google.com/maps/dir/?api=1&destination=${b.address.lat},${b.address.lng}` : '#'}><MapPin className="h-4 w-4" />{[b.address.line1, b.address.area, b.address.pin_code].filter(Boolean).join(', ')}</a>}
                 </div>)}
+              {b.status === 'in_progress' && b.payment_method === 'razorpay' && b.payment_status !== 'paid' && <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">Waiting for the customer's online payment. You can complete the order once it is paid.</p>}
               {['confirmed', 'provider_assigned', 'on_the_way', 'in_progress', 'completed'].includes(b.status) && (
                 <ol className="mt-3 flex items-center gap-1 overflow-x-auto text-[11px]" aria-label="Order progress">
                   {(b.mode === 'home' ? FLOW_HOME : FLOW_SALON).map((st, i, arr) => { const cur = arr.indexOf(b.status); return (
@@ -237,9 +239,13 @@ function LiveShare({ bookingId, auto = false }: { bookingId: string; auto?: bool
     }, () => { toast.error('Could not read your location. Check permission.'); stop() }, { enableHighAccuracy: true, maximumAge: 5000 })
   }
   useEffect(() => { if (auto && !on && watch.current == null) start() }, [auto]) // eslint-disable-line react-hooks/exhaustive-deps
-  return on
-    ? <button className="btn btn-primary btn-sm" onClick={stop}><Radio className="h-4 w-4 animate-pulse" />Sharing… tap to stop</button>
-    : <button className="btn btn-outline btn-sm" onClick={start}><Navigation className="h-4 w-4" />Share live location</button>
+  return (
+    <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-line bg-white px-3 py-1.5 text-xs font-medium">
+      <Radio className={`h-4 w-4 ${on ? 'animate-pulse text-green-600' : 'text-muted'}`} />Live location
+      <button type="button" role="switch" aria-checked={on} aria-label="Share live location" onClick={on ? stop : start}
+        className={`relative h-5 w-9 rounded-full transition ${on ? 'bg-green-600' : 'bg-blush-300'}`}><span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${on ? 'left-[18px]' : 'left-0.5'}`} /></button>
+    </label>
+  )
 }
 
 function Reports({ salon }: { salon: Salon }) {

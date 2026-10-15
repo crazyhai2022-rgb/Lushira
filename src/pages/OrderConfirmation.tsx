@@ -9,12 +9,14 @@ import { PayBadge, StatusBadge } from '../components/booking'
 import { payForBooking } from '../lib/payment'
 import { friendlyError } from '../lib/errors'
 import { useToast } from '../context/ToastContext'
+import BookingChat, { CHAT_STATUSES, ChatButton } from '../components/BookingChat'
 
 export default function OrderConfirmation() {
   const { id = '' } = useParams()
   const qc = useQueryClient()
   const toast = useToast()
   const [paying, setPaying] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
   const q = useQuery({ queryKey: ['booking', id], queryFn: () => getBooking(id), refetchInterval: (s) => (s.state.data?.payment_status === 'unpaid' && s.state.data.payment_method === 'razorpay' ? 5000 : false) })
   if (q.isLoading) return <div className="container-x py-10"><Skeleton className="h-80" /></div>
   if (q.isError) return <div className="container-x py-10"><ErrorState onRetry={() => q.refetch()} /></div>
@@ -64,9 +66,11 @@ export default function OrderConfirmation() {
       <div className="mt-6 flex flex-wrap justify-center gap-3">
         {needsPay && <button className="btn btn-primary" onClick={pay} disabled={paying}>{paying ? 'Opening…' : `Pay ${inr(b.total_inr)}`}</button>}
         <Link to={`/track/${b.id}`} className="btn btn-primary">Track booking</Link>
+        {CHAT_STATUSES.includes(b.status) && <ChatButton bookingId={b.id} onOpen={() => setChatOpen(true)} className="btn btn-outline" />}
         <Link to="/orders" className="btn btn-outline">My orders</Link>
         <Link to="/" className="btn btn-ghost">Back to home</Link>
       </div>
+      {chatOpen && <BookingChat bookingId={b.id} title={b.salons?.name ?? 'Salon'} phone={b.salons?.contact_phone} onClose={() => setChatOpen(false)} />}
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { fmtDateTime, inr } from '../lib/format'
 import { CardSkeletonGrid, EmptyState, ErrorState, Modal, PageHero, StarInput } from '../components/ui'
 import { ACTIVE, CANCELLABLE, PayBadge, StatusBadge, useCancelBooking } from '../components/booking'
 import { useAuth } from '../context/AuthContext'
+import BookingChat, { CHAT_STATUSES, ChatButton } from '../components/BookingChat'
 import { useCart } from '../context/CartContext'
 import { useToast } from '../context/ToastContext'
 import { friendlyError } from '../lib/errors'
@@ -28,6 +29,7 @@ export default function Orders() {
   const cart = useCart()
   const [tab, setTab] = useState<(typeof TABS)[number]['k']>('upcoming')
   const [reviewFor, setReviewFor] = useState<Booking | null>(null)
+  const [chatFor, setChatFor] = useState<Booking | null>(null)
   const [rating, setRating] = useState(5)
   const [comment, setComment] = useState('')
   const cancel = useCancelBooking()
@@ -88,6 +90,7 @@ export default function Orders() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Link to={`/order/${b.id}`} className="btn btn-outline btn-sm">Details</Link>
                     {ACTIVE.includes(b.status) && <Link to={`/track/${b.id}`} className="btn btn-primary btn-sm">Track</Link>}
+                    {ACTIVE.includes(b.status) && CHAT_STATUSES.includes(b.status) && <ChatButton bookingId={b.id} onOpen={() => setChatFor(b)} />}
                     {CANCELLABLE.includes(b.status) && <button className="btn btn-ghost btn-sm" onClick={() => cancel.ask(b.id)}>Cancel</button>}
                     {['completed', 'cancelled', 'rejected'].includes(b.status) && <button className="btn btn-outline btn-sm" onClick={() => void rebook(b)}><RotateCw className="h-3.5 w-3.5" />Book again</button>}
                     {b.status === 'completed' && !(b.reviews?.length) && <button className="btn btn-dark btn-sm" onClick={() => setReviewFor(b)}><Star className="h-3.5 w-3.5" />Rate</button>}
@@ -98,6 +101,7 @@ export default function Orders() {
         </div>
       </div>
       {cancel.dialog}
+      {chatFor && <BookingChat bookingId={chatFor.id} title={chatFor.salons?.name ?? 'Salon'} phone={chatFor.salons?.contact_phone} onClose={() => setChatFor(null)} />}
       <Modal open={!!reviewFor} onClose={() => setReviewFor(null)} title={`Rate ${reviewFor?.salons?.name ?? 'your visit'}`}>
         <StarInput value={rating} onChange={setRating} />
         <label className="mt-3 block"><span className="label">Your review (optional)</span><textarea className="input min-h-24" maxLength={1000} value={comment} onChange={(e) => setComment(e.target.value)} /></label>

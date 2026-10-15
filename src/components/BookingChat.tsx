@@ -10,7 +10,7 @@ import { fmtTime } from '../lib/format'
 
 export interface ChatMsg { id: string; booking_id: string; sender_id: string; body: string | null; image_path: string | null; created_at: string; delivered_at: string | null; read_at: string | null }
 
-export const CHAT_STATUSES = ['confirmed', 'provider_assigned', 'on_the_way', 'in_progress', 'completed']
+export const CHAT_STATUSES = ['pending', 'confirmed', 'provider_assigned', 'on_the_way', 'in_progress', 'completed']
 
 /** Marks incoming messages as delivered as soon as this device receives them (even if the chat is closed). */
 export function useChatDelivery() {

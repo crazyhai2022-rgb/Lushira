@@ -17,6 +17,7 @@ const Brands = lazy(() => import('./pages/Brands'))
 const Checkout = lazy(() => import('./pages/Checkout'))
 const Orders = lazy(() => import('./pages/Orders'))
 const Auth = lazy(() => import('./pages/Auth'))
+const ThankYou = lazy(() => import('./pages/ThankYou'))
 const Profile = lazy(() => import('./pages/Profile'))
 const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'))
 const Tracking = lazy(() => import('./pages/Tracking'))
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="orders" element={<RequireAuth><Orders /></RequireAuth>} />
           <Route path="track" element={<RequireAuth><TrackList /></RequireAuth>} />
           <Route path="track/:id" element={<RequireAuth><Tracking /></RequireAuth>} />
+          <Route path="thank-you/:id" element={<RequireAuth><ThankYou /></RequireAuth>} />
           <Route path="login" element={<Auth mode="login" />} />
           <Route path="signup" element={<Auth mode="signup" />} />
           <Route path="profile" element={<RequireAuth><Profile /></RequireAuth>} />
