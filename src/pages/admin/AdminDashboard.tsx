@@ -8,7 +8,6 @@ import { useToast } from '../../context/ToastContext'
 import { EmptyState, ErrorState, Modal, PageHero, Skeleton, VerifiedBadge } from '../../components/ui'
 import { StatusBadge } from '../../components/booking'
 import { Crud } from './Crud'
-import { uploadSalonImage } from '../partner/editors'
 import type { Booking } from '../../lib/types'
 
 type Tab = 'overview' | 'salons' | 'bookings' | 'payments' | 'catalog' | 'brands' | 'marketing' | 'reviews' | 'support' | 'settings'
@@ -111,49 +110,29 @@ function Bookings() {
   )
 }
 
-/** Admin: mark a salon as a verified company/brand (shown in the home page "Shop by brands" strip). */
+/** Admin: verify a salon as a company/brand (shown in the home page "Shop by brands" strip with the partner's own logo). */
 function BrandPanel({ s }: { s: SalonRow }) {
   const qc = useQueryClient()
   const toast = useToast()
-  const [name, setName] = useState(s.brand_name ?? s.name)
-  const [busy, setBusy] = useState(false)
-  const refresh = () => qc.invalidateQueries({ queryKey: ['a-salons'] })
-  const save = async (patch: Record<string, unknown>, ok: string) => {
-    setBusy(true)
-    const r = await supabase.from('salons').update(patch).eq('id', s.id)
-    setBusy(false)
-    if (r.error) return toast.error(friendlyError(r.error))
-    toast.success(ok); void refresh()
-  }
-  const toggle = (on: boolean) => on
-    ? save({ is_brand: true, brand_verified: true, brand_name: (s.brand_name || s.name).trim() }, 'Marked as a verified brand. It shows on the home page once the salon is approved.')
-    : save({ brand_verified: false }, 'Brand verification removed.')
-  const upload = async (f: File) => {
-    setBusy(true)
-    try {
-      const path = await uploadSalonImage(s.id, f, 'brand')
-      const r = await supabase.from('salons').update({ brand_logo_url: path }).eq('id', s.id)
+  const verified = s.is_brand && s.brand_verified
+  const toggle = useMutation({
+    mutationFn: async () => {
+      const patch = verified ? { brand_verified: false } : { is_brand: true, brand_verified: true, brand_name: (s.brand_name || s.name).trim() }
+      const r = await supabase.from('salons').update(patch).eq('id', s.id)
       if (r.error) throw r.error
-      toast.success('Brand logo updated.'); void refresh()
-    } catch (e) { toast.error(friendlyError(e)) }
-    setBusy(false)
-  }
+    },
+    onSuccess: () => { toast.success(verified ? 'Brand verification removed.' : 'Verified as a brand. It shows on the home page once the salon is approved.'); void qc.invalidateQueries({ queryKey: ['a-salons'] }) },
+    onError: (e) => toast.error(friendlyError(e)),
+  })
   const logo = s.brand_logo_url ?? s.logo_url
   return (
-    <div className="mt-3 rounded-xl bg-blush-50 p-3">
-      <div className="flex flex-wrap items-center gap-3">
-        {logo ? <img src={publicUrl(logo)!} alt="" className="h-12 w-12 rounded-xl border border-line bg-white object-contain" /> : <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-blush-300 text-[10px] text-muted">No logo</span>}
-        <div className="min-w-0 flex-1">
-          <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold"><input type="checkbox" className="h-5 w-5 accent-lush-600" checked={s.is_brand && s.brand_verified} disabled={busy} onChange={(e) => void toggle(e.target.checked)} />Verified brand / company</label>
-          <p className="text-xs text-muted">{s.is_brand && !s.brand_verified ? `Partner says this is a brand${s.brand_name ? `: ${s.brand_name}` : ''}. Tick to verify.` : 'Tick if this salon is a real brand or company. Its logo and name then appear in “Shop by brands” on the home page.'}</p>
-        </div>
+    <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl bg-blush-50 p-3">
+      {logo ? <img src={publicUrl(logo)!} alt="" className="h-12 w-12 rounded-full border border-line bg-white object-cover" /> : <span className="flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-blush-300 text-[10px] text-muted">No logo</span>}
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold">{s.brand_name || s.name}{verified && <span className="chip ml-2 !py-0.5 text-xs">Brand verified</span>}</p>
+        <p className="text-xs text-muted">{s.is_brand && !s.brand_verified ? 'Partner says this is a company / brand. Verify to show it on the home page.' : verified ? 'Shown in “Shop by brands” on the home page.' : 'Verify if this salon is a real brand or company.'}</p>
       </div>
-      {s.is_brand && s.brand_verified && (
-        <div className="mt-3 flex flex-wrap items-end gap-2">
-          <label className="min-w-[180px] flex-1"><span className="label">Brand name</span><input className="input !py-1.5 text-sm" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} /></label>
-          <button type="button" className="btn btn-outline btn-sm" disabled={busy || name.trim().length < 2 || name.trim() === (s.brand_name ?? '')} onClick={() => void save({ brand_name: name.trim() }, 'Brand name saved.')}>Save name</button>
-          <label className="btn btn-outline btn-sm cursor-pointer">Upload brand logo<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); e.target.value = '' }} /></label>
-        </div>)}
+      <button type="button" className={`btn btn-sm ${verified ? 'btn-outline' : 'btn-primary'}`} disabled={toggle.isPending} onClick={() => toggle.mutate()}><BadgeCheck className="h-4 w-4" />{verified ? 'Unverify brand' : 'Verify brand'}</button>
     </div>
   )
 }

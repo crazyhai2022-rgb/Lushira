@@ -91,8 +91,8 @@ function BrandStrip() {
       <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2">
         {q.data.map((b) => (
           <Link key={b.id} to={`/salon/${b.slug}`} className="group w-24 shrink-0 text-center sm:w-28">
-            <span className="flex aspect-square items-center justify-center overflow-hidden rounded-[1.6rem] border border-blush-200 bg-white p-2.5 shadow-sm transition group-hover:-translate-y-0.5 group-hover:shadow-md">
-              <img src={publicUrl(b.brand_logo_url)!} alt="" loading="lazy" className="h-full w-full object-contain" />
+            <span className="flex aspect-square items-center justify-center overflow-hidden rounded-full border-2 border-white bg-white shadow-md ring-1 ring-blush-200 transition group-hover:-translate-y-0.5 group-hover:shadow-lg">
+              <img src={publicUrl(b.brand_logo_url)!} alt="" loading="lazy" className="h-full w-full object-cover" />
             </span>
             <span className="mt-2 line-clamp-2 block text-xs font-medium text-plum-800 sm:text-sm">{b.brand_name}</span>
           </Link>
