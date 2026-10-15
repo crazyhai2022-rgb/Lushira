@@ -123,7 +123,7 @@ function InfoStep({ salon, onDone }: { salon: Salon | null; onDone: () => void }
     setErr(er)
     if (Object.keys(er).length) return
     setBusy(true)
-    const row = { name: f.name.trim(), business_type: f.business_type, description: f.description.trim() || null, contact_phone: ph, contact_email: f.contact_email.trim() || null, home_service: f.home_service, concurrent_capacity: cap, appointment_required: f.appointment_required, walk_in: f.walk_in }
+    const row = { name: f.name.trim(), business_type: f.business_type, description: f.description.trim() || null, contact_phone: ph, contact_email: f.contact_email.trim() || null, home_service: true, concurrent_capacity: cap, appointment_required: true, walk_in: false }
     const r = salon ? await supabase.from('salons').update(row).eq('id', salon.id).select('id').single() : await supabase.from('salons').insert({ ...row, owner_id: user!.id }).select('id').single()
     if (r.error) { setBusy(false); return toast.error(friendlyError(r.error)) }
     const p = await supabase.from('salon_private').upsert({ salon_id: r.data.id, owner_name: f.owner_name.trim(), owner_phone: ph, owner_email: realEmail(user?.email) || null })
@@ -141,11 +141,7 @@ function InfoStep({ salon, onDone }: { salon: Salon | null; onDone: () => void }
       <Field label="Contact email" error={err.email}><input className="input" type="email" value={f.contact_email} onChange={(e) => setF({ ...f, contact_email: e.target.value })} /></Field>
       <Field label="Customers served at the same time" error={err.cap} hint="Chairs / beauticians that can work in parallel."><input className="input" inputMode="numeric" value={f.capacity} onChange={(e) => setF({ ...f, capacity: e.target.value.replace(/\D/g, '') })} /></Field>
       <div className="sm:col-span-2"><Field label="About your salon"><textarea className="input min-h-24" maxLength={500} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Experience, specialities, what makes you special…" /></Field></div>
-      <div className="flex flex-wrap gap-5 text-sm sm:col-span-2">
-        <label className="flex items-center gap-2"><input type="checkbox" className="accent-lush-600" checked={f.home_service} onChange={(e) => setF({ ...f, home_service: e.target.checked })} />We offer at-home service</label>
-        <label className="flex items-center gap-2"><input type="checkbox" className="accent-lush-600" checked={f.appointment_required} onChange={(e) => setF({ ...f, appointment_required: e.target.checked })} />Appointment required</label>
-        <label className="flex items-center gap-2"><input type="checkbox" className="accent-lush-600" checked={f.walk_in} onChange={(e) => setF({ ...f, walk_in: e.target.checked })} />Walk-ins welcome</label>
-      </div>
+      <p className="rounded-xl bg-blush-100 p-3 text-xs text-muted sm:col-span-2">Lushira is an at-home beauty service: your beauticians travel to the customer. Customers book a date and time slot online.</p>
       <div className="sm:col-span-2"><Nav onNext={() => void submit(new Event('submit') as unknown as FormEvent)} busy={busy} nextLabel="Save & continue" /></div>
     </form>
   )

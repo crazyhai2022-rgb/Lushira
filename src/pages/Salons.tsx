@@ -16,7 +16,7 @@ export default function Salons() {
   const [view, setView] = useState<'list' | 'map'>('list')
   const [radius, setRadius] = useState<number | null>(null)
   const [category, setCategory] = useState('')
-  const [homeOnly, setHomeOnly] = useState(false)
+  const homeOnly = true
   const [query, setQuery] = useState('')
   const [debounced, setDebounced] = useState('')
   const place = loc.place
@@ -58,7 +58,6 @@ export default function Salons() {
           <select className="input !w-auto" value={r} onChange={(e) => setRadius(Number(e.target.value))} aria-label="Radius" disabled={!place}>
             {[...new Set([2, 5, 10, 25, settings.radiusKm])].sort((a, b) => a - b).map((k) => <option key={k} value={k}>{k} km</option>)}
           </select>
-          <label className="inline-flex items-center gap-2 rounded-xl border border-blush-300/70 bg-white px-3 py-2.5 text-sm"><input type="checkbox" className="h-4 w-4 accent-lush-600" checked={homeOnly} onChange={(e) => setHomeOnly(e.target.checked)} />At-home</label>
           <div className="inline-flex rounded-full bg-blush-100 p-1" role="tablist" aria-label="View">
             <button role="tab" aria-selected={view === 'list'} onClick={() => setView('list')} className={`btn btn-sm ${view === 'list' ? 'btn-primary' : 'btn-ghost'}`}><List className="h-4 w-4" />List</button>
             <button role="tab" aria-selected={view === 'map'} onClick={() => setView('map')} className={`btn btn-sm ${view === 'map' ? 'btn-primary' : 'btn-ghost'}`}><MapIcon className="h-4 w-4" />Map</button>

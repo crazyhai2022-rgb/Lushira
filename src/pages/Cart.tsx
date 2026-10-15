@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { Clock, Home, Minus, Plus, ShoppingBag, Store, Trash2 } from 'lucide-react'
+import { Clock, Home, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { useSettings } from '../hooks/useSettings'
 import { EmptyState } from '../components/ui'
@@ -14,8 +14,6 @@ export default function Cart() {
   if (!cart.items.length || !cart.salon) {
     return <div className="container-x py-12"><EmptyState icon={<ShoppingBag className="h-6 w-6" />} title="Your cart is empty" text="Add services from a salon to get started." action={<Link to="/services" className="btn btn-primary btn-sm">Browse services</Link>} /></div>
   }
-  const canHome = cart.salon.homeService && cart.items.every((i) => i.atHome)
-  const canSalon = cart.items.every((i) => i.atSalon)
   const tax = Math.round(cart.subtotal * st.taxPercent) / 100
   return (
     <div className="container-x py-8">
@@ -40,13 +38,9 @@ export default function Cart() {
                 </div>
               </div>
             </div>))}
-          <div className="card p-4">
-            <p className="label">Where should the service happen?</p>
-            <div className="grid grid-cols-2 gap-2">
-              <button disabled={!canSalon} onClick={() => cart.setMode('salon')} className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-medium disabled:opacity-40 ${cart.mode === 'salon' ? 'border-lush-600 bg-blush-100 text-lush-700' : 'border-line'}`}><Store className="h-4 w-4" />At the salon</button>
-              <button disabled={!canHome} onClick={() => cart.setMode('home')} className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-medium disabled:opacity-40 ${cart.mode === 'home' ? 'border-lush-600 bg-blush-100 text-lush-700' : 'border-line'}`}><Home className="h-4 w-4" />At my home</button>
-            </div>
-            {!canHome && <p className="mt-2 text-xs text-muted">At-home service is not available for {cart.salon.homeService ? 'one or more selected services' : 'this salon'}.</p>}
+          <div className="card flex items-center gap-3 p-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blush-100 text-lush-600"><Home className="h-5 w-5" /></span>
+            <div><p className="font-semibold">Service at your home</p><p className="text-xs text-muted">The beautician comes to your address. You choose the date, time and location at checkout.</p></div>
           </div>
         </div>
         <aside className="card h-fit p-5 lg:sticky lg:top-24">

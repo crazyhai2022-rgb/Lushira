@@ -28,7 +28,7 @@ export default function Wedding() {
   const res = useQuery({ queryKey: ['wedding-services'], queryFn: async () => (await searchServices({ limit: 120 })).filter((s) => s.is_wedding) })
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [f, setF] = useState({ name: '', phone: '', date: '', venue: '', people: '1', msg: '' })
+  const [f, setF] = useState({ name: '', phone: '', date: '', time: '10:00', kind: 'Wedding / bridal', venue: '', people: '1', msg: '' })
   const [err, setErr] = useState<Record<string, string>>({})
 
   const submit = async (e: FormEvent) => {
@@ -39,13 +39,15 @@ export default function Wedding() {
     if (name.length < 2) er.name = 'Enter your name'
     if (!phone) er.phone = 'Enter a valid mobile number'
     if (!f.date) er.date = 'Choose the event date'
+    if (!f.time) er.time = 'Choose the time'
+    if (!f.venue.trim()) er.venue = 'Enter the address where the service is needed'
     setErr(er)
     if (Object.keys(er).length) return
     setBusy(true)
     const r = await supabase.from('support_tickets').insert({
       user_id: user?.id ?? null, name, phone, email: user?.email ?? null,
-      subject: 'Wedding quote request',
-      message: `Event date: ${f.date}\nVenue/area: ${f.venue || '-'}\nPeople needing services: ${f.people}\nDetails: ${f.msg || '-'}`,
+      subject: 'Wedding service schedule request',
+      message: `Service at: customer home / venue (at-home service)\nEvent: ${f.kind}\nScheduled date: ${f.date}\nScheduled time: ${f.time}\nAddress/venue: ${f.venue}\nPeople needing services: ${f.people}\nDetails: ${f.msg || '-'}`,
     })
     setBusy(false)
     if (r.error) return toast.error(friendlyError(r.error))
@@ -68,7 +70,7 @@ export default function Wedding() {
 
         <section id="packages" className="mt-12 scroll-mt-20">
           <h2 className="section-title">Wedding services &amp; packages</h2>
-          <p className="mb-5 mt-1 text-sm text-muted">Listed by salons on Lushira. Pick a package and choose a date; for custom requirements request a quote below.</p>
+          <p className="mb-5 mt-1 text-sm text-muted">Home-service packages listed on Lushira. Pick a package and book a slot at checkout, or schedule a custom wedding service below.</p>
           {res.isLoading ? <CardSkeletonGrid count={4} className="h-36" /> : res.isError ? <ErrorState onRetry={() => res.refetch()} /> :
             (res.data?.length ?? 0) === 0 ? (
               <EmptyState icon={<Crown className="h-6 w-6" />} title="No wedding packages listed yet" text="Salons are adding their bridal packages. You can still request a custom quote and our team will get back to you." action={<a href="#quote" className="btn btn-primary btn-sm">Request a quote</a>} />
@@ -85,8 +87,8 @@ export default function Wedding() {
 
         <section id="quote" className="mt-12 grid scroll-mt-20 gap-6 lg:grid-cols-[1fr_1.1fr]">
           <div>
-            <h2 className="section-title">Request a custom quote</h2>
-            <p className="mt-2 text-sm text-muted">Tell us about your event — venue, date and how many people need services. Our team will contact you on the number you share. No payment is taken at this step.</p>
+            <h2 className="section-title">Schedule your wedding service</h2>
+            <p className="mt-2 text-sm text-muted">Our beauticians come to your home or venue. Choose the event, date and time, tell us the address and how many people need services. Our team will confirm the schedule on the number you share. No payment is taken at this step.</p>
             <ul className="mt-4 space-y-2 text-sm">
               {['Trial sessions can be arranged with the salon', 'Event-day timings and travel are confirmed in advance', 'Advance and cancellation terms are shared before you book'].map((t) => (
                 <li key={t} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-lush-600" />{t}</li>))}
@@ -95,18 +97,20 @@ export default function Wedding() {
           </div>
           <div className="card p-5">
             {sent ? (
-              <div className="py-8 text-center"><CheckCircle2 className="mx-auto h-12 w-12 text-green-600" /><h3 className="mt-3 font-display text-2xl font-semibold">Request received</h3>
-                <p className="mt-1 text-sm text-muted">Thank you! We will contact you soon to discuss your wedding plans.</p>
+              <div className="py-8 text-center"><CheckCircle2 className="mx-auto h-12 w-12 text-green-600" /><h3 className="mt-3 font-display text-2xl font-semibold">Schedule request received</h3>
+                <p className="mt-1 text-sm text-muted">Thank you! We will call you to confirm your date, time and package.</p>
                 <Link to="/services" className="btn btn-outline btn-sm mt-4">Continue browsing</Link></div>
             ) : (
               <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2" noValidate>
                 <Field label="Your name" required error={err.name}><input className="input" value={f.name || ''} placeholder={profile?.full_name || ''} onChange={(e) => setF({ ...f, name: e.target.value })} autoComplete="name" /></Field>
                 <Field label="Mobile number" required error={err.phone}><input className="input" inputMode="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} autoComplete="tel" placeholder="98765 43210" /></Field>
+                <Field label="Event"><select className="input" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}>{['Wedding / bridal', 'Engagement', 'Haldi / Mehendi', 'Sangeet / Reception', 'Party / other'].map((k) => <option key={k}>{k}</option>)}</select></Field>
                 <Field label="Event date" required error={err.date}><input className="input" type="date" min={new Date().toISOString().slice(0, 10)} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
+                <Field label="Preferred time" required error={err.time}><input className="input" type="time" value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} /></Field>
                 <Field label="People needing services"><input className="input" type="number" min={1} max={50} value={f.people} onChange={(e) => setF({ ...f, people: e.target.value })} /></Field>
-                <div className="sm:col-span-2"><Field label="Venue / area"><input className="input" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} /></Field></div>
+                <div className="sm:col-span-2"><Field label="Address / venue (service at your home or venue)" required error={err.venue}><input className="input" value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} /></Field></div>
                 <div className="sm:col-span-2"><Field label="Anything else?"><textarea className="input min-h-24" maxLength={800} value={f.msg} onChange={(e) => setF({ ...f, msg: e.target.value })} /></Field></div>
-                <button className="btn btn-primary sm:col-span-2" disabled={busy}>{busy ? 'Sending…' : 'Request quote'}</button>
+                <button className="btn btn-primary sm:col-span-2" disabled={busy}>{busy ? 'Sending…' : 'Schedule my service'}</button>
               </form>
             )}
           </div>

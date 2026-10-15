@@ -22,13 +22,13 @@ interface CartApi extends CartState {
 }
 
 const KEY = 'lushira.cart.v1'
-const empty: CartState = { salon: null, items: [], mode: 'salon', coupon: '' }
+const empty: CartState = { salon: null, items: [], mode: 'home', coupon: '' }
 const Ctx = createContext<CartApi | null>(null)
 
 function load(): CartState {
   try {
     const raw = localStorage.getItem(KEY)
-    return raw ? { ...empty, ...JSON.parse(raw) } : empty
+    return raw ? { ...empty, ...JSON.parse(raw), mode: 'home' } : empty
   } catch {
     return empty
   }
@@ -56,8 +56,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           const items = found
             ? base.items.map((i) => (i.id === item.id ? { ...i, qty: Math.min(10, i.qty + 1) } : i))
             : [...base.items, { ...item, qty: 1 }]
-          const mode: ServiceMode = base.mode === 'home' && !items.every((i) => i.atHome) ? 'salon' : base.mode
-          return { ...base, salon, items, mode }
+          return { ...base, salon, items, mode: 'home' as ServiceMode }
         })
         return true
       },

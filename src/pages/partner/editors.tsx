@@ -11,7 +11,7 @@ import type { SalonService } from '../../lib/types'
 
 /* ---------------------------------------------------------------- services */
 type SvcForm = { id?: string; name: string; category_id: string; description: string; price_inr: string; duration_min: string; buffer_min: string; at_salon: boolean; at_home: boolean; is_wedding: boolean; is_active: boolean }
-const blank: SvcForm = { name: '', category_id: '', description: '', price_inr: '', duration_min: '60', buffer_min: '0', at_salon: true, at_home: false, is_wedding: false, is_active: true }
+const blank: SvcForm = { name: '', category_id: '', description: '', price_inr: '', duration_min: '60', buffer_min: '0', at_salon: false, at_home: true, is_wedding: false, is_active: true }
 
 export function ServicesEditor({ salonId, homeService }: { salonId: string; homeService: boolean }) {
   const qc = useQueryClient()
@@ -29,8 +29,7 @@ export function ServicesEditor({ salonId, homeService }: { salonId: string; home
       if (!(price >= 0) || f.price_inr === '') throw new Error('Enter a valid price.')
       if (!(dur >= 5 && dur <= 720)) throw new Error('Duration must be 5–720 minutes.')
       if (!(buf >= 0 && buf <= 120)) throw new Error('Buffer must be 0–120 minutes.')
-      if (!f.at_salon && !f.at_home) throw new Error('Choose at least one place of service.')
-      const row = { salon_id: salonId, name: f.name.trim(), category_id: f.category_id || null, description: f.description.trim() || null, price_inr: price, duration_min: dur, buffer_min: buf, at_salon: f.at_salon, at_home: f.at_home && homeService, is_wedding: f.is_wedding, is_active: f.is_active }
+      const row = { salon_id: salonId, name: f.name.trim(), category_id: f.category_id || null, description: f.description.trim() || null, price_inr: price, duration_min: dur, buffer_min: buf, at_salon: false, at_home: true, is_wedding: f.is_wedding, is_active: f.is_active }
       const r = f.id ? await supabase.from('salon_services').update(row).eq('id', f.id) : await supabase.from('salon_services').insert(row)
       if (r.error) throw r.error
     },
@@ -67,8 +66,7 @@ export function ServicesEditor({ salonId, homeService }: { salonId: string; home
             <Field label="Buffer min"><input className="input" inputMode="numeric" value={form.buffer_min} onChange={(e) => setForm({ ...form, buffer_min: e.target.value.replace(/\D/g, '') })} /></Field>
           </div>
           <div className="flex flex-wrap gap-4 text-sm">
-            <label className="flex items-center gap-2"><input type="checkbox" className="accent-lush-600" checked={form.at_salon} onChange={(e) => setForm({ ...form, at_salon: e.target.checked })} />At salon</label>
-            <label className={`flex items-center gap-2 ${homeService ? '' : 'opacity-50'}`}><input type="checkbox" className="accent-lush-600" disabled={!homeService} checked={form.at_home && homeService} onChange={(e) => setForm({ ...form, at_home: e.target.checked })} />At home{!homeService && ' (enable home service first)'}</label>
+            <p className="w-full text-xs text-muted">All services are delivered at the customer&apos;s home.</p>
             <label className="flex items-center gap-2"><input type="checkbox" className="accent-lush-600" checked={form.is_wedding} onChange={(e) => setForm({ ...form, is_wedding: e.target.checked })} />Wedding package</label>
           </div>
           <div className="flex justify-end gap-2"><button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>Cancel</button><button type="button" className="btn btn-primary" disabled={save.isPending} onClick={() => save.mutate(form)}>{save.isPending ? 'Saving…' : 'Save'}</button></div>

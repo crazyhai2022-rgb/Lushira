@@ -191,7 +191,6 @@ export default function SalonDetails() {
                 <div className="mt-4 flex flex-wrap gap-2">
                   {s.home_service && <span className="chip">Home service</span>}
                   {s.appointment_required && <span className="chip">Appointment required</span>}
-                  {s.walk_in && <span className="chip">Walk-ins welcome</span>}
                   {Object.entries(s.facilities ?? {}).filter(([, v]) => v).map(([k]) => <span key={k} className="chip">{k}</span>)}
                 </div>
                 <h3 className="mb-1 mt-5 font-display text-lg font-semibold">Cancellation policy</h3>

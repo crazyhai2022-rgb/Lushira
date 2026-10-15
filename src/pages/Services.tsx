@@ -30,7 +30,7 @@ export default function Services() {
   const q = sp.get('q') ?? ''
   const category = sp.get('category')
   const sort = (sp.get('sort') as ServiceSearch['sort']) ?? 'relevance'
-  const mode = (sp.get('mode') as 'salon' | 'home' | null) ?? null
+  const mode = 'home' as const
   const maxPrice = sp.get('max') ? Number(sp.get('max')) : null
   const minRating = sp.get('rating') ? Number(sp.get('rating')) : null
   const near = sp.get('near') === '1' && !!loc.place
@@ -62,7 +62,7 @@ export default function Services() {
     return [...m.entries()]
   }, [res.data])
   const rows = (res.data ?? []).filter((s) => !salonFilter || s.salon_id === salonFilter)
-  const activeFilters = [mode, maxPrice, minRating, near, salonFilter].filter(Boolean).length
+  const activeFilters = [maxPrice, minRating, near, salonFilter].filter(Boolean).length
 
   return (
     <>
@@ -99,10 +99,6 @@ export default function Services() {
             <label className="block"><span className="label">Sort by</span>
               <select className="input" value={sort} onChange={(e) => set('sort', e.target.value)}>
                 {SORTS.map((s) => <option key={s.v} value={s.v} disabled={s.v === 'distance' && !loc.place}>{s.l}{s.v === 'distance' && !loc.place ? ' (set location)' : ''}</option>)}
-              </select></label>
-            <label className="block"><span className="label">Service type</span>
-              <select className="input" value={mode ?? ''} onChange={(e) => set('mode', e.target.value)}>
-                <option value="">Any</option><option value="salon">At the salon</option><option value="home">At home</option>
               </select></label>
             <label className="block"><span className="label">Max price</span>
               <select className="input" value={maxPrice ?? ''} onChange={(e) => set('max', e.target.value)}>

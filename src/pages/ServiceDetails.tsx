@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Clock, Home, MapPin, ShieldCheck, Store } from 'lucide-react'
+import { Clock, Home, MapPin, ShieldCheck } from 'lucide-react'
 import { getServiceById, categoryImage } from '../lib/api'
 import { duration, inr } from '../lib/format'
 import { publicUrl } from '../lib/supabase'
@@ -41,7 +41,6 @@ export default function ServiceDetails() {
           <p className="mt-3 text-muted">{s.description || 'Professional service delivered by verified beauty experts.'}</p>
           <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
             <span className="inline-flex items-center gap-1"><Clock className="h-4 w-4 text-lush-600" />{duration(s.duration_min)}</span>
-            {s.at_salon && <span className="chip"><Store className="h-3.5 w-3.5" />At salon</span>}
             {s.at_home && salon.home_service && <span className="chip"><Home className="h-3.5 w-3.5" />At home</span>}
           </div>
           <p className="mt-5 font-display text-3xl font-semibold text-lush-600">{inr(s.price_inr)}</p>

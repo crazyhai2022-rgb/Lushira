@@ -1,6 +1,6 @@
 # Lushira — Beauty at Your Doorstep
 
-Mobile-first PWA marketplace for salons, parlours and at-home beauty services.
+Mobile-first PWA marketplace for at-home beauty services (Zomato-style: book online, the beautician comes to your home).
 React + TypeScript + Vite + Tailwind v4 · Supabase (Postgres/PostGIS, Auth, RLS, Realtime, Storage, Edge Functions) · Razorpay · Leaflet/OpenStreetMap (Mapbox optional).
 
 ## Run locally
