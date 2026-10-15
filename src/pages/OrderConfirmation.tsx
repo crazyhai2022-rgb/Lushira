@@ -55,7 +55,7 @@ export default function OrderConfirmation() {
         <dl className="space-y-1 text-sm">
           <div className="flex justify-between"><dt>Subtotal</dt><dd>{inr(b.subtotal_inr)}</dd></div>
           {b.discount_inr > 0 && <div className="flex justify-between text-green-700"><dt>Discount</dt><dd>− {inr(b.discount_inr)}</dd></div>}
-          <div className="flex justify-between text-muted"><dt>Tax</dt><dd>{inr(b.tax_inr)}</dd></div>
+          {b.tax_inr > 0 && <div className="flex justify-between text-muted"><dt>Tax</dt><dd>{inr(b.tax_inr)}</dd></div>}
           {b.fee_inr > 0 && <div className="flex justify-between text-muted"><dt>Platform fee</dt><dd>{inr(b.fee_inr)}</dd></div>}
           <div className="flex justify-between text-base font-semibold"><dt>Total</dt><dd>{inr(b.total_inr)}</dd></div>
         </dl>

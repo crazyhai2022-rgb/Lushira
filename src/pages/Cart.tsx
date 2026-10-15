@@ -14,7 +14,6 @@ export default function Cart() {
   if (!cart.items.length || !cart.salon) {
     return <div className="container-x py-12"><EmptyState icon={<ShoppingBag className="h-6 w-6" />} title="Your cart is empty" text="Add services from a salon to get started." action={<Link to="/services" className="btn btn-primary btn-sm">Browse services</Link>} /></div>
   }
-  const tax = Math.round(cart.subtotal * st.taxPercent) / 100
   return (
     <div className="container-x py-8">
       <h1 className="text-3xl font-semibold">Your cart</h1>
@@ -47,9 +46,8 @@ export default function Cart() {
           <h2 className="font-display text-xl font-semibold">Summary</h2>
           <dl className="mt-3 space-y-2 text-sm">
             <div className="flex justify-between"><dt>Subtotal</dt><dd>{inr(cart.subtotal)}</dd></div>
-            <div className="flex justify-between text-muted"><dt>Tax ({st.taxPercent}%)</dt><dd>{inr(tax)}</dd></div>
             {st.platformFee > 0 && <div className="flex justify-between text-muted"><dt>Platform fee</dt><dd>{inr(st.platformFee)}</dd></div>}
-            <div className="flex justify-between border-t border-line pt-2 text-base font-semibold"><dt>Estimated total</dt><dd>{inr(cart.subtotal + tax + st.platformFee)}</dd></div>
+            <div className="flex justify-between border-t border-line pt-2 text-base font-semibold"><dt>Estimated total</dt><dd>{inr(cart.subtotal + st.platformFee)}</dd></div>
           </dl>
           <p className="mt-1 text-xs text-muted">Coupons are applied at checkout. Final price is confirmed by our server.</p>
           <button className="btn btn-primary mt-4 w-full" onClick={() => nav('/checkout')}>Choose date &amp; time</button>

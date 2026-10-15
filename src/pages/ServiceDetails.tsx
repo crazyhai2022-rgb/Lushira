@@ -44,7 +44,7 @@ export default function ServiceDetails() {
             {s.at_home && salon.home_service && <span className="chip"><Home className="h-3.5 w-3.5" />At home</span>}
           </div>
           <p className="mt-5 font-display text-3xl font-semibold text-lush-600">{inr(s.price_inr)}</p>
-          <p className="text-xs text-muted">Taxes calculated at checkout.</p>
+          
           <div className="mt-5 flex flex-wrap gap-3">
             <button className="btn btn-primary" onClick={() => { if (addNow()) nav('/cart') }}>Book Now</button>
             <button className="btn btn-outline" onClick={addNow} disabled={inCart}>{inCart ? 'In cart' : 'Add to cart'}</button>

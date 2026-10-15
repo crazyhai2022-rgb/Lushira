@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Banknote, CreditCard, Crosshair, MapPin, Tag } from 'lucide-react'
+import { Banknote, CalendarClock, CreditCard, Crosshair, MapPin, Tag, Zap } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useSettings } from '../hooks/useSettings'
-import { realEmail } from '../lib/mobileAuth'
 import { supabase } from '../lib/supabase'
 import { getSlots } from '../lib/api'
 import { dayLabel, duration, fmtTime, inr, istDate, normalizePhone } from '../lib/format'
@@ -22,7 +21,7 @@ const emptyAddr: Addr = { line1: '', landmark: '', area: '', city: '', pin_code:
 
 export default function Checkout() {
   const cart = useCart()
-  const { user, profile } = useAuth()
+  const { profile } = useAuth()
   const toast = useToast()
   const nav = useNavigate()
   const st = useSettings()
@@ -31,7 +30,7 @@ export default function Checkout() {
   const [staffId, setStaffId] = useState<string>('')
   const [name, setName] = useState(profile?.full_name ?? '')
   const [phone, setPhone] = useState(profile?.phone ?? '')
-  const [email, setEmail] = useState(realEmail(user?.email))
+  const [when, setWhen] = useState<'now' | 'later'>('now')
   const [notes, setNotes] = useState('')
   const [addr, setAddr] = useState<Addr>(emptyAddr)
   const [pay, setPay] = useState<Pay | null>(null)
@@ -70,17 +69,16 @@ export default function Checkout() {
   const buffer = meta.data?.buffer ?? 0
 
   const slots = useQuery({
-    queryKey: ['slots', salonId, date, totalMin, staffId, buffer], enabled: !!salonId && !!meta.data,
-    queryFn: () => getSlots(salonId, date, totalMin, staffId || null, buffer),
+    queryKey: ['slots', salonId, when === 'now' ? istDate(0) : date, totalMin, staffId, buffer], enabled: !!salonId && !!meta.data,
+    queryFn: () => getSlots(salonId, when === 'now' ? istDate(0) : date, totalMin, staffId || null, buffer),
   })
-  useEffect(() => { setSlot(null) }, [date, staffId])
+  useEffect(() => { setSlot(null) }, [date, staffId, when])
+  // "Current order": book the earliest available slot today, automatically.
+  useEffect(() => { if (when === 'now' && slots.data?.length && !slot) setSlot(slots.data[0].slot_start) }, [when, slots.data, slot])
 
   const days = useMemo(() => Array.from({ length: 14 }, (_, i) => istDate(i)), [])
   const discount = coupon?.discount ?? 0
-  const tax = Math.round((cart.subtotal - discount) * st.taxPercent) / 100
-  const total = cart.subtotal - discount + tax + st.platformFee
-
-  if (!cart.items.length || !cart.salon) return <Navigate to="/cart" replace />
+  const total = cart.subtotal - discount + st.platformFee
 
   const applyCoupon = async () => {
     if (!code.trim()) return
@@ -106,6 +104,7 @@ export default function Checkout() {
     navigator.geolocation.getCurrentPosition(async (p) => { await pinAt(p.coords.latitude, p.coords.longitude); setGeoBusy(false) },
       () => { setGeoBusy(false); toast.error('Could not get your location. Search for your area instead.') }, { enableHighAccuracy: true, timeout: 15000 })
   }
+  useEffect(() => { if (home && addr.lat == null) useGps() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const searchArea = async () => {
     if (placeQ.trim().length < 3) return
     try { setHits(await searchPlaces(placeQ.trim())) } catch { toast.error('Search failed. Try again.') }
@@ -115,8 +114,7 @@ export default function Checkout() {
     const e: Record<string, string> = {}
     if (name.trim().length < 2) e.name = 'Enter your full name'
     if (!normalizePhone(phone)) e.phone = 'Enter a valid 10-digit mobile number'
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) e.email = 'Enter a valid email'
-    if (!slot) e.slot = 'Choose a time slot'
+    if (!slot) e.slot = when === 'now' ? 'No slot is free right now — switch to “Book for later”' : 'Choose a time slot'
     if (home) {
       if (addr.line1.trim().length < 3) e.line1 = 'Enter your house / street address'
       if (!/^\d{6}$/.test(addr.pin_code)) e.pin = 'Enter a 6-digit PIN code'
@@ -135,7 +133,7 @@ export default function Checkout() {
       p_salon_id: salonId,
       p_items: cart.items.map((i) => ({ salon_service_id: i.id, quantity: i.qty })),
       p_start: slot, p_mode: cart.mode, p_staff_id: staffId || null,
-      p_customer_name: name.trim(), p_customer_phone: normalizePhone(phone), p_customer_email: email.trim() || null, p_notes: notes.trim() || null,
+      p_customer_name: name.trim(), p_customer_phone: normalizePhone(phone), p_customer_email: null, p_notes: notes.trim() || null,
       p_address: home ? { line1: addr.line1.trim(), landmark: addr.landmark.trim() || undefined, area: addr.area.trim() || undefined, city: addr.city.trim() || undefined, pin_code: addr.pin_code, lat: addr.lat, lng: addr.lng } : null,
       p_address_lat: home ? addr.lat : null, p_address_lng: home ? addr.lng : null,
       p_payment_method: pay, p_coupon_code: coupon?.code ?? null,
@@ -149,7 +147,7 @@ export default function Checkout() {
     const b = r.data as { id: string }
     if (pay === 'razorpay') {
       try {
-        const res = await payForBooking(b.id, { name: name.trim(), email: email.trim() || undefined, contact: normalizePhone(phone) ?? undefined })
+        const res = await payForBooking(b.id, { name: name.trim(), contact: normalizePhone(phone) ?? undefined })
         if (res === 'failed') toast.error('Payment could not be confirmed. You can retry from your order page.')
         if (res === 'dismissed') toast.info('Payment not completed. You can pay from your order page.')
       } catch (e) { toast.error(friendlyError(e)) }
@@ -160,6 +158,7 @@ export default function Checkout() {
   }
 
   const saved = meta.data?.saved ?? []
+  if (!cart.items.length || !cart.salon) return <Navigate to="/cart" replace />
   return (
     <form onSubmit={submit} className="container-x py-8" noValidate>
       <nav className="mb-2 text-xs text-muted"><Link to="/cart" className="hover:underline">Cart</Link> › Checkout</nav>
@@ -168,20 +167,28 @@ export default function Checkout() {
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
         <div className="space-y-6">
           <section className="card p-5">
-            <h2 className="font-display text-xl font-semibold">1. Date &amp; time</h2>
+            <h2 className="font-display text-xl font-semibold">1. When do you need us?</h2>
+            <div className="mt-3 grid grid-cols-2 gap-1 rounded-full bg-blush-100 p-1" role="tablist" aria-label="Order type">
+              {([['now', 'Current order', Zap], ['later', 'Booking', CalendarClock]] as const).map(([k, l, Icon]) => (
+                <button key={k} type="button" role="tab" aria-selected={when === k} onClick={() => setWhen(k)}
+                  className={`flex items-center justify-center gap-1.5 rounded-full py-2.5 text-sm font-semibold transition ${when === k ? 'bg-white text-lush-600 shadow' : 'text-muted'}`}><Icon className="h-4 w-4" />{l}</button>))}
+            </div>
+            {when === 'now' ? (
+              <p className="mt-3 rounded-xl bg-blush-100 p-3 text-sm">{slots.isLoading ? 'Finding the earliest slot…' : slot ? <>Earliest available: <strong>Today, {fmtTime(slot)}</strong>. Your beautician will come to you as soon as possible.</> : 'No slot is free right now. Switch to “Booking” to pick another day.'}</p>
+            ) : (
             <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-2" role="listbox" aria-label="Date">
               {days.map((d) => (
                 <button type="button" key={d} role="option" aria-selected={d === date} onClick={() => setDate(d)}
                   className={`shrink-0 rounded-xl border px-3 py-2 text-center text-xs font-medium ${d === date ? 'border-lush-600 bg-lush-600 text-white' : 'border-line bg-white'}`}>
                   {dayLabel(d).split(' ').map((p, i) => <div key={i} className={i === 0 ? 'opacity-80' : 'text-sm font-semibold'}>{p}</div>)}
                 </button>))}
-            </div>
+            </div>)}
             {(meta.data?.staff.length ?? 0) > 0 && (
               <label className="mt-3 block"><span className="label">Preferred beautician (optional)</span>
                 <select className="input" value={staffId} onChange={(e) => setStaffId(e.target.value)}>
                   <option value="">Any available</option>{meta.data!.staff.map((s) => <option key={s.id} value={s.id}>{s.name}{s.role_title ? ` — ${s.role_title}` : ''}</option>)}
                 </select></label>)}
-            <div className="mt-4">
+            {when === 'later' && <div className="mt-4">
               {slots.isLoading ? <Spinner /> : slots.isError ? <p className="text-sm text-red-600">Could not load slots. <button type="button" className="underline" onClick={() => slots.refetch()}>Retry</button></p> :
                 (slots.data?.length ?? 0) === 0 ? <p className="rounded-xl bg-blush-100 p-3 text-sm text-muted">No slots available on this day for {duration(totalMin)}. Try another date.</p> : (
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5" role="listbox" aria-label="Time slots">
@@ -190,14 +197,14 @@ export default function Checkout() {
                         className={`rounded-lg border px-2 py-2 text-sm font-medium ${slot === s.slot_start ? 'border-lush-600 bg-lush-600 text-white' : 'border-line hover:border-lush-400'}`}>{fmtTime(s.slot_start)}</button>))}
                   </div>)}
               {errs.slot && <p role="alert" className="mt-2 text-xs font-medium text-red-600">{errs.slot}</p>}
-            </div>
+            </div>}
+            {when === 'now' && errs.slot && <p role="alert" className="mt-2 text-xs font-medium text-red-600">{errs.slot}</p>}
           </section>
 
           <section className="card grid gap-3 p-5 sm:grid-cols-2">
             <h2 className="font-display text-xl font-semibold sm:col-span-2">2. Your details</h2>
             <Field label="Full name" required error={errs.name}><input className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></Field>
             <Field label="Mobile number" required error={errs.phone}><input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" placeholder="98765 43210" /></Field>
-            <div className="sm:col-span-2"><Field label="Email (optional)" error={errs.email}><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></Field></div>
             <div className="sm:col-span-2"><Field label="Notes for the salon (optional)"><textarea className="input min-h-20" maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Allergies, preferences, parking info…" /></Field></div>
           </section>
 
@@ -227,9 +234,10 @@ export default function Checkout() {
                 </div>
                 {hits.length > 0 && <ul className="mt-2 divide-y divide-line rounded-xl bg-white text-sm">{hits.map((h, i) => (
                   <li key={i}><button type="button" className="w-full px-3 py-2 text-left hover:bg-blush-50" onClick={() => { void pinAt(h.lat, h.lng); setHits([]); setPlaceQ(h.label) }}>{h.label}</button></li>))}</ul>}
+                {addr.lat != null && <p className="mt-2 text-xs text-muted">Tip: tap anywhere on the map to move the pin.</p>}
                 {filled && <p className="mt-2 text-xs font-medium text-green-700">Address filled from your location. Please check it and edit anything that is not correct.</p>}
                 {addr.lat != null && addr.lng != null && (
-                  <div className="mt-3 overflow-hidden rounded-xl"><MapView center={[addr.lat, addr.lng]} height={160} zoom={16} markers={[{ id: 'a', lat: addr.lat, lng: addr.lng, label: 'Service location', kind: 'home' }]} /></div>)}
+                  <div className="mt-3 overflow-hidden rounded-xl"><MapView center={[addr.lat, addr.lng]} height={200} zoom={16} onPick={(la, ln) => void pinAt(la, ln)} markers={[{ id: 'a', lat: addr.lat, lng: addr.lng, label: 'Service location', kind: 'home' }]} /></div>)}
                 {errs.geo && <p role="alert" className="mt-2 text-xs font-medium text-red-600">{errs.geo}</p>}
               </div>
             </section>)}
@@ -265,7 +273,6 @@ export default function Checkout() {
           <dl className="space-y-1.5 text-sm">
             <div className="flex justify-between"><dt>Subtotal</dt><dd>{inr(cart.subtotal)}</dd></div>
             {discount > 0 && <div className="flex justify-between text-green-700"><dt>Discount</dt><dd>− {inr(discount)}</dd></div>}
-            <div className="flex justify-between text-muted"><dt>Tax ({st.taxPercent}%)</dt><dd>{inr(tax)}</dd></div>
             {st.platformFee > 0 && <div className="flex justify-between text-muted"><dt>Platform fee</dt><dd>{inr(st.platformFee)}</dd></div>}
             <div className="flex justify-between border-t border-line pt-2 text-base font-semibold"><dt>Total</dt><dd>{inr(total)}</dd></div>
           </dl>

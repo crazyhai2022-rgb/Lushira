@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { MapContainer, Marker, Popup, TileLayer, useMap, Circle } from 'react-leaflet'
+import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents, Circle } from 'react-leaflet'
 import L from 'leaflet'
 import { Link } from 'react-router-dom'
 import { env } from '../lib/supabase'
@@ -26,8 +26,13 @@ function Fit({ markers, center, zoom }: { markers: MapMarker[]; center: [number,
   return null
 }
 
-export default function MapView({ center, markers, zoom = 14, height = 320, radiusKm, className = '' }: {
-  center: [number, number]; markers: MapMarker[]; zoom?: number; height?: number | string; radiusKm?: number; className?: string
+function Tap({ onPick }: { onPick: (lat: number, lng: number) => void }) {
+  useMapEvents({ click: (e) => onPick(e.latlng.lat, e.latlng.lng) })
+  return null
+}
+
+export default function MapView({ center, markers, zoom = 14, height = 320, radiusKm, className = '', onPick }: {
+  center: [number, number]; markers: MapMarker[]; zoom?: number; height?: number | string; radiusKm?: number; className?: string; onPick?: (lat: number, lng: number) => void
 }) {
   const tile = env.mapboxToken
     ? { url: `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${env.mapboxToken}`, attribution: '© Mapbox © OpenStreetMap', zoomOffset: -1, tileSize: 512 }
@@ -36,6 +41,7 @@ export default function MapView({ center, markers, zoom = 14, height = 320, radi
     <div className={className} style={{ height }}>
       <MapContainer center={center} zoom={zoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
         <TileLayer url={tile.url} attribution={tile.attribution} zoomOffset={tile.zoomOffset} tileSize={tile.tileSize} />
+        {onPick && <Tap onPick={onPick} />}
         <Fit markers={markers} center={center} zoom={zoom} />
         {radiusKm && <Circle center={center} radius={radiusKm * 1000} pathOptions={{ color: '#c4416f', weight: 1, fillOpacity: 0.05 }} />}
         {markers.map((m) => (
