@@ -37,7 +37,7 @@ export default function PartnerDashboard() {
         {salon.status !== 'approved' && <StatusBanner salon={salon} />}
         <OrderAlert salon={salon} open={() => setTab('bookings')} />
         <div className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4" role="tablist">
-          {TABS.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`chip shrink-0 !px-4 !py-2 text-sm ${tab === k ? 'chip-active' : ''}`}>{l}</button>)}
+          {TABS.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`chip shrink-0 !px-4 !py-2 text-sm ${tab === k ? 'chip-active' : ''}`}>{l}{k === 'bookings' && <LiveDot salonId={salon.id} />}</button>)}
         </div>
         {tab === 'overview' && <Overview salon={salon} go={setTab} />}
         {tab === 'bookings' && <Bookings salon={salon} />}
@@ -87,6 +87,16 @@ function OrderAlert({ salon, open }: { salon: Salon; open: () => void }) {
   )
 }
 
+const LIVE: BookingStatus[] = ['confirmed', 'provider_assigned', 'on_the_way', 'in_progress']
+const DONE: BookingStatus[] = ['completed', 'cancelled', 'rejected', 'no_show']
+
+/** Green blinking dot while at least one accepted order is live. */
+function LiveDot({ salonId }: { salonId: string }) {
+  const q = useSalonBookings(salonId)
+  if (!(q.data ?? []).some((b) => LIVE.includes(b.status))) return null
+  return <span className="relative ml-2 inline-flex h-2.5 w-2.5" aria-label="Live order in progress"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" /></span>
+}
+
 function StatusBanner({ salon }: { salon: Salon }) {
   const m: Record<string, string> = { draft: 'Your application is not submitted yet. Finish registration to go live.', pending: 'Your salon is under review. You will be notified once it is approved. Customers cannot book yet.', rejected: `Your application needs changes: ${salon.rejection_reason ?? ''}`, suspended: `Your salon is suspended. ${salon.rejection_reason ?? 'Contact support.'}` }
   return <div role="status" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900"><span>{m[salon.status]}</span>{['draft', 'rejected'].includes(salon.status) && <Link to="/partner/register" className="btn btn-primary btn-sm">Continue registration</Link>}</div>
@@ -122,8 +132,88 @@ function Overview({ salon, go }: { salon: Salon; go: (t: Tab) => void }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{stats.map(([I, l, v, to]) => <button key={l} onClick={() => go(to as Tab)} className="card p-4 text-left hover:shadow-md"><I className="h-5 w-5 text-lush-600" /><p className="mt-2 font-display text-2xl font-semibold">{q.isLoading ? '…' : v}</p><p className="text-xs text-muted">{l}</p></button>)}</div>
+      <Charts bookings={q.data ?? []} loading={q.isLoading} />
       <section><h3 className="mb-2 font-display text-lg font-semibold">Recent notifications</h3>
         {notes.data?.length ? <ul className="space-y-2">{notes.data.map((n) => <li key={n.id} className="card p-3 text-sm"><p className="font-medium">{n.title}</p><p className="text-muted">{n.body}</p><p className="text-xs text-muted">{fmtDateTime(n.created_at)}</p></li>)}</ul> : <p className="text-sm text-muted">No notifications yet.</p>}</section>
+    </div>
+  )
+}
+
+
+const STATUS_META: { k: string; l: string; c: string; match: (b: Booking) => boolean }[] = [
+  { k: 'done', l: 'Completed', c: '#16a34a', match: (b) => b.status === 'completed' },
+  { k: 'live', l: 'Live / upcoming', c: '#c4416f', match: (b) => LIVE.includes(b.status) },
+  { k: 'new', l: 'New request', c: '#f59e0b', match: (b) => b.status === 'pending' },
+  { k: 'lost', l: 'Cancelled / rejected', c: '#94a3b8', match: (b) => ['cancelled', 'rejected', 'no_show'].includes(b.status) },
+]
+
+/** Overview graphs: revenue & orders for the last 14 days, order status mix, cash vs online, top services. Plain SVG, no library. */
+function Charts({ bookings, loading }: { bookings: Booking[]; loading: boolean }) {
+  const d = useMemo(() => {
+    const ist = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(iso))
+    const days = Array.from({ length: 14 }, (_, i) => istDate(i - 13))
+    const valid = bookings.filter((b) => !['cancelled', 'rejected', 'no_show'].includes(b.status))
+    const perDay = days.map((day) => {
+      const done = bookings.filter((b) => b.status === 'completed' && ist(b.scheduled_start) === day)
+      return { day, label: day.slice(8), revenue: done.reduce((a, b) => a + Number(b.total_inr), 0), orders: valid.filter((b) => ist(b.scheduled_start) === day).length }
+    })
+    const status = STATUS_META.map((m) => ({ ...m, n: bookings.filter(m.match).length }))
+    const paidB = bookings.filter((b) => b.status === 'completed')
+    const cash = paidB.filter((b) => b.payment_method === 'cash').reduce((a, b) => a + Number(b.total_inr), 0)
+    const online = paidB.filter((b) => b.payment_method !== 'cash').reduce((a, b) => a + Number(b.total_inr), 0)
+    const svc = new Map<string, number>()
+    valid.forEach((b) => b.booking_items?.forEach((i) => svc.set(i.name, (svc.get(i.name) ?? 0) + i.quantity)))
+    const top = [...svc.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)
+    return { perDay, status, cash, online, top, total: bookings.length }
+  }, [bookings])
+  if (loading) return <Skeleton className="h-64" />
+  if (!d.total) return <p className="card p-5 text-center text-sm text-muted">Graphs will appear here after your first booking.</p>
+  const maxRev = Math.max(1, ...d.perDay.map((x) => x.revenue))
+  const maxOrd = Math.max(1, ...d.perDay.map((x) => x.orders))
+  const W = 300, H = 110
+  const pts = d.perDay.map((x, i) => [8 + (i * (W - 16)) / 13, H - 10 - (x.orders / maxOrd) * (H - 24)] as const)
+  const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
+  const area = `${line} L${pts[13][0].toFixed(1)},${H - 10} L${pts[0][0].toFixed(1)},${H - 10} Z`
+  const pay = d.cash + d.online
+  const maxSvc = Math.max(1, ...d.top.map((t) => t[1]))
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <section className="card p-4">
+        <h3 className="font-display text-lg font-semibold">Revenue — last 14 days</h3>
+        <div className="mt-3 flex h-36 items-end gap-1" role="img" aria-label="Revenue per day">
+          {d.perDay.map((x) => <div key={x.day} className="flex flex-1 flex-col items-center justify-end gap-1" title={`${x.day}: ${inr(x.revenue)}`}>
+            <div className="w-full rounded-t bg-gradient-to-t from-lush-600 to-lush-400" style={{ height: `${(x.revenue / maxRev) * 100}%`, minHeight: x.revenue ? 4 : 2, opacity: x.revenue ? 1 : 0.25 }} /><span className="text-[9px] text-muted">{x.label}</span></div>)}
+        </div>
+        <p className="mt-2 text-xs text-muted">Completed orders only. Total: <strong>{inr(d.perDay.reduce((a, x) => a + x.revenue, 0))}</strong></p>
+      </section>
+
+      <section className="card p-4">
+        <h3 className="font-display text-lg font-semibold">Orders — last 14 days</h3>
+        <svg viewBox={`0 0 ${W} ${H + 12}`} className="mt-3 w-full" role="img" aria-label="Orders per day">
+          {[0, 0.5, 1].map((g) => <line key={g} x1="8" x2={W - 8} y1={H - 10 - g * (H - 24)} y2={H - 10 - g * (H - 24)} stroke="currentColor" className="text-line" strokeWidth="0.6" />)}
+          <path d={area} fill="#c4416f" opacity="0.12" /><path d={line} fill="none" stroke="#c4416f" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+          {pts.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="2.6" fill="#c4416f"><title>{`${d.perDay[i].day}: ${d.perDay[i].orders} order(s)`}</title></circle>)}
+          {d.perDay.map((x, i) => (i % 2 === 0 ? <text key={x.day} x={pts[i][0]} y={H + 8} textAnchor="middle" fontSize="8" fill="currentColor" className="text-muted">{x.label}</text> : null))}
+        </svg>
+        <p className="text-xs text-muted">Busiest day: <strong>{maxOrd} order{maxOrd > 1 ? 's' : ''}</strong></p>
+      </section>
+
+      <section className="card p-4">
+        <h3 className="font-display text-lg font-semibold">Order status</h3>
+        <div className="mt-4 flex h-5 w-full overflow-hidden rounded-full bg-blush-100" role="img" aria-label="Order status split">
+          {d.status.filter((x) => x.n).map((x) => <div key={x.k} style={{ width: `${(x.n / d.total) * 100}%`, background: x.c }} title={`${x.l}: ${x.n}`} />)}
+        </div>
+        <ul className="mt-3 grid grid-cols-2 gap-2 text-sm">{d.status.map((x) => <li key={x.k} className="flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ background: x.c }} />{x.l}<strong className="ml-auto">{x.n}</strong></li>)}</ul>
+      </section>
+
+      <section className="card p-4">
+        <h3 className="font-display text-lg font-semibold">Top services &amp; payments</h3>
+        <ul className="mt-3 space-y-2">{d.top.length ? d.top.map(([n, c]) => <li key={n} className="text-sm"><div className="flex justify-between"><span className="truncate">{n}</span><strong>{c}</strong></div><div className="mt-1 h-2 rounded-full bg-blush-100"><div className="h-2 rounded-full bg-lush-600" style={{ width: `${(c / maxSvc) * 100}%` }} /></div></li>) : <li className="text-sm text-muted">No services booked yet.</li>}</ul>
+        <div className="mt-4 border-t border-line pt-3 text-sm">
+          <div className="flex h-3 overflow-hidden rounded-full bg-blush-100"><div style={{ width: pay ? `${(d.cash / pay) * 100}%` : 0, background: '#f59e0b' }} /><div style={{ width: pay ? `${(d.online / pay) * 100}%` : 0, background: '#0ea5e9' }} /></div>
+          <div className="mt-2 flex justify-between text-xs"><span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" />Cash {inr(d.cash)}</span><span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-sky-500" />Online {inr(d.online)}</span></div>
+        </div>
+      </section>
     </div>
   )
 }
@@ -145,7 +235,7 @@ function nextStep(b: Booking): { to: BookingStatus; label: string } | null {
 function Bookings({ salon }: { salon: Salon }) {
   const toast = useToast()
   const qc = useQueryClient()
-  const [f, setF] = useState<'new' | 'upcoming' | 'past'>('new')
+  const [f, setF] = useState<'all' | 'new' | 'live' | 'past'>('all')
   const [chat, setChat] = useState<{ id: string; title: string; phone: string } | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const q = useSalonBookings(salon.id)
@@ -158,10 +248,16 @@ function Bookings({ salon }: { salon: Salon }) {
     mutationFn: async (id: string) => { const r = await supabase.rpc('mark_cash_collected', { p_booking_id: id }); if (r.error) throw r.error },
     onSuccess: () => { toast.success('Cash payment recorded.'); void qc.invalidateQueries({ queryKey: ['p-bookings', salon.id] }) }, onError: (e) => toast.error(friendlyError(e)),
   })
-  const list = (q.data ?? []).filter((b) => f === 'new' ? b.status === 'pending' : f === 'upcoming' ? ['confirmed', 'provider_assigned', 'on_the_way', 'in_progress'].includes(b.status) : ['completed', 'cancelled', 'rejected', 'no_show'].includes(b.status))
+  const liveCount = (q.data ?? []).filter((b) => LIVE.includes(b.status)).length
+  const newCount = (q.data ?? []).filter((b) => b.status === 'pending').length
+  const list = (q.data ?? []).filter((b) => f === 'all' ? true : f === 'new' ? b.status === 'pending' : f === 'live' ? LIVE.includes(b.status) : DONE.includes(b.status))
   return (
     <div>
-      <div className="mb-4 flex gap-2">{(['new', 'upcoming', 'past'] as const).map((k) => <button key={k} onClick={() => setF(k)} className={`chip !px-4 !py-2 text-sm capitalize ${f === k ? 'chip-active' : ''}`}>{k === 'new' ? 'New requests' : k}</button>)}</div>
+      <div className="mb-4 flex gap-2 overflow-x-auto" role="tablist" aria-label="Order filter">{([['all', 'All orders'], ['new', 'New requests'], ['live', 'Live order'], ['past', 'Past']] as const).map(([k, l]) => (
+        <button key={k} role="tab" aria-selected={f === k} onClick={() => setF(k)} className={`chip shrink-0 !px-4 !py-2 text-sm ${f === k ? 'chip-active' : ''}`}>{l}
+          {k === 'new' && newCount > 0 && <span className="ml-1.5 rounded-full bg-lush-600 px-1.5 text-[11px] font-bold text-white">{newCount}</span>}
+          {k === 'live' && liveCount > 0 && <span className="relative ml-2 inline-flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" /></span>}
+        </button>))}</div>
       {q.isLoading ? <Skeleton className="h-32" /> : q.isError ? <ErrorState onRetry={() => q.refetch()} /> : !list.length ? <EmptyState icon={<CalendarDays className="h-6 w-6" />} title="Nothing here" text="Bookings will appear as customers book your services." /> : (
         <div className="space-y-3">{list.map((b) => {
           const awaitingPay = b.payment_method === 'razorpay' && b.payment_status !== 'paid'
