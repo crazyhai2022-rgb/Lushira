@@ -43,3 +43,34 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string> 
 }
 
 const shorten = (s?: string) => (s ? s.split(',').slice(0, 2).join(',').trim() : 'Current location')
+
+export interface AddressParts { line: string; landmark: string; area: string; city: string; state: string; pin: string }
+
+/** Reverse-geocodes a point into editable address fields (street, area, city, state, PIN). Returns null on failure. */
+export async function reverseGeocodeAddress(lat: number, lng: number): Promise<AddressParts | null> {
+  try {
+    if (env.mapboxToken) {
+      const r = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${env.mapboxToken}&limit=1&country=in`)
+      if (!r.ok) return null
+      const f = (await r.json()).features?.[0] as { text?: string; address?: string; place_name?: string; context?: { id: string; text: string }[] } | undefined
+      if (!f) return null
+      const ctx = (p: string) => f.context?.find((c) => c.id.startsWith(p))?.text ?? ''
+      return {
+        line: [f.address, f.text].filter(Boolean).join(' ') || (f.place_name ?? '').split(',')[0],
+        landmark: '', area: ctx('neighborhood') || ctx('locality'), city: ctx('place') || ctx('district'), state: ctx('region'),
+        pin: /^\d{6}$/.test(ctx('postcode')) ? ctx('postcode') : '',
+      }
+    }
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=1&lat=${lat}&lon=${lng}`, { headers: { 'Accept-Language': 'en' } })
+    if (!r.ok) return null
+    const j = (await r.json()) as { display_name?: string; address?: Record<string, string> }
+    const a = j.address ?? {}
+    const area = a.suburb || a.neighbourhood || a.city_district || a.village || a.hamlet || ''
+    const line = [a.house_number, a.road].filter(Boolean).join(' ') || a.neighbourhood || a.hamlet || a.village || (j.display_name ?? '').split(',').slice(0, 2).join(',').trim()
+    const city = a.city || a.town || a.village || a.county || a.state_district || ''
+    const pin = (a.postcode ?? '').replace(/\s/g, '')
+    return { line, landmark: a.amenity || a.shop || '', area: area === city ? '' : area, city, state: a.state ?? '', pin: /^\d{6}$/.test(pin) ? pin : '' }
+  } catch {
+    return null
+  }
+}

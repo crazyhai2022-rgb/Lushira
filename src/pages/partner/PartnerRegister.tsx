@@ -7,7 +7,7 @@ import { useToast } from '../../context/ToastContext'
 import { supabase } from '../../lib/supabase'
 import { friendlyError } from '../../lib/errors'
 import { isEmail, normalizePhone } from '../../lib/format'
-import { reverseGeocode, searchPlaces, type PlaceHit } from '../../lib/geocode'
+import { reverseGeocodeAddress, searchPlaces, type PlaceHit } from '../../lib/geocode'
 import { Field, PageHero, Skeleton, Spinner } from '../../components/ui'
 import MapView from '../../components/MapView'
 import MobileAccount from '../../components/MobileAccount'
@@ -158,10 +158,19 @@ function LocationStep({ salon, onBack, onDone }: { salon: Salon; onBack: () => v
   const [pt, setPt] = useState<{ lat: number; lng: number } | null>(salon.lat != null && salon.lng != null ? { lat: salon.lat, lng: salon.lng } : null)
   const [q, setQ] = useState(''); const [hits, setHits] = useState<PlaceHit[]>([]); const [busy, setBusy] = useState(false); const [geo, setGeo] = useState(false)
   const [err, setErr] = useState('')
+  const [filled, setFilled] = useState(false)
+  // Pin a point and auto-fill the (editable) address fields from it.
+  const pinAt = async (lat: number, lng: number) => {
+    setPt({ lat, lng })
+    const a = await reverseGeocodeAddress(lat, lng)
+    if (!a) return toast.info('Location pinned. Could not read the address automatically — please type it.')
+    setF((x) => ({ ...x, address_line: a.line || x.address_line, landmark: a.landmark || x.landmark, area: a.area || x.area, city: a.city || x.city, state: a.state || x.state, pin_code: a.pin || x.pin_code }))
+    setFilled(true); setErr('')
+  }
   const gps = () => {
     if (!navigator.geolocation) return toast.error('Location is not supported on this device.')
     setGeo(true)
-    navigator.geolocation.getCurrentPosition(async (p) => { setPt({ lat: p.coords.latitude, lng: p.coords.longitude }); setGeo(false); const l = await reverseGeocode(p.coords.latitude, p.coords.longitude).catch(() => ''); if (l && !f.area) setF((x) => ({ ...x, area: l.split(',')[0] })) },
+    navigator.geolocation.getCurrentPosition(async (p) => { await pinAt(p.coords.latitude, p.coords.longitude); setGeo(false) },
       () => { setGeo(false); toast.error('Could not get your location. Search for it instead.') }, { enableHighAccuracy: true, timeout: 15000 })
   }
   const save = async () => {
@@ -193,7 +202,8 @@ function LocationStep({ salon, onBack, onDone }: { salon: Salon; onBack: () => v
           <button type="button" className="btn btn-outline btn-sm" onClick={gps} disabled={geo}><Crosshair className="h-4 w-4" />{geo ? 'Locating…' : 'Use current location'}</button>
           <div className="flex min-w-[200px] flex-1 gap-2"><input className="input !py-1.5 text-sm" placeholder="Search address or landmark" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void searchPlaces(q).then(setHits).catch(() => toast.error('Search failed.')) } }} /><button type="button" className="btn btn-dark btn-sm" onClick={() => void searchPlaces(q).then(setHits).catch(() => toast.error('Search failed.'))}>Search</button></div>
         </div>
-        {hits.length > 0 && <ul className="mt-2 divide-y divide-line rounded-xl bg-white text-sm">{hits.map((h, i) => <li key={i}><button type="button" className="w-full px-3 py-2 text-left hover:bg-blush-50" onClick={() => { setPt({ lat: h.lat, lng: h.lng }); setHits([]); setQ(h.label) }}>{h.label}</button></li>)}</ul>}
+        {hits.length > 0 && <ul className="mt-2 divide-y divide-line rounded-xl bg-white text-sm">{hits.map((h, i) => <li key={i}><button type="button" className="w-full px-3 py-2 text-left hover:bg-blush-50" onClick={() => { void pinAt(h.lat, h.lng); setHits([]); setQ(h.label) }}>{h.label}</button></li>)}</ul>}
+        {filled && <p className="mt-2 text-xs font-medium text-green-700">Address filled from your location. Please check it and edit anything that is not correct.</p>}
         {pt && <div className="mt-3 overflow-hidden rounded-xl"><MapView center={[pt.lat, pt.lng]} zoom={16} height={200} markers={[{ id: 's', lat: pt.lat, lng: pt.lng, label: salon.name }]} /></div>}
       </div>
       {err && <p role="alert" className="text-sm text-red-600">{err}</p>}

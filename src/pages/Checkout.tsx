@@ -11,7 +11,7 @@ import { supabase } from '../lib/supabase'
 import { getSlots } from '../lib/api'
 import { dayLabel, duration, fmtTime, inr, istDate, normalizePhone } from '../lib/format'
 import { friendlyError } from '../lib/errors'
-import { searchPlaces, reverseGeocode, type PlaceHit } from '../lib/geocode'
+import { searchPlaces, reverseGeocodeAddress, type PlaceHit } from '../lib/geocode'
 import { payForBooking } from '../lib/payment'
 import { Field, Spinner } from '../components/ui'
 import MapView from '../components/MapView'
@@ -91,14 +91,20 @@ export default function Checkout() {
     else { setCoupon(null); setCouponMsg(friendlyError(d.reason ?? 'coupon_invalid')) }
   }
 
+  const [filled, setFilled] = useState(false)
+  // Pin a point and auto-fill the (editable) address fields from it.
+  const pinAt = async (lat: number, lng: number) => {
+    setAddr((a) => ({ ...a, lat, lng }))
+    const r = await reverseGeocodeAddress(lat, lng)
+    if (!r) return toast.info('Location pinned. Could not read the address automatically — please type it.')
+    setAddr((a) => ({ ...a, line1: r.line || a.line1, landmark: r.landmark || a.landmark, area: r.area || a.area, city: r.city || a.city, pin_code: r.pin || a.pin_code }))
+    setFilled(true)
+  }
   const useGps = () => {
     if (!navigator.geolocation) return toast.error('Location is not supported on this device.')
     setGeoBusy(true)
-    navigator.geolocation.getCurrentPosition(async (p) => {
-      const label = await reverseGeocode(p.coords.latitude, p.coords.longitude).catch(() => '')
-      setAddr((a) => ({ ...a, lat: p.coords.latitude, lng: p.coords.longitude, area: a.area || label.split(',')[0] }))
-      setGeoBusy(false)
-    }, () => { setGeoBusy(false); toast.error('Could not get your location. Search for your area instead.') }, { enableHighAccuracy: true, timeout: 15000 })
+    navigator.geolocation.getCurrentPosition(async (p) => { await pinAt(p.coords.latitude, p.coords.longitude); setGeoBusy(false) },
+      () => { setGeoBusy(false); toast.error('Could not get your location. Search for your area instead.') }, { enableHighAccuracy: true, timeout: 15000 })
   }
   const searchArea = async () => {
     if (placeQ.trim().length < 3) return
@@ -220,7 +226,8 @@ export default function Checkout() {
                   </div>
                 </div>
                 {hits.length > 0 && <ul className="mt-2 divide-y divide-line rounded-xl bg-white text-sm">{hits.map((h, i) => (
-                  <li key={i}><button type="button" className="w-full px-3 py-2 text-left hover:bg-blush-50" onClick={() => { setAddr({ ...addr, lat: h.lat, lng: h.lng }); setHits([]); setPlaceQ(h.label) }}>{h.label}</button></li>))}</ul>}
+                  <li key={i}><button type="button" className="w-full px-3 py-2 text-left hover:bg-blush-50" onClick={() => { void pinAt(h.lat, h.lng); setHits([]); setPlaceQ(h.label) }}>{h.label}</button></li>))}</ul>}
+                {filled && <p className="mt-2 text-xs font-medium text-green-700">Address filled from your location. Please check it and edit anything that is not correct.</p>}
                 {addr.lat != null && addr.lng != null && (
                   <div className="mt-3 overflow-hidden rounded-xl"><MapView center={[addr.lat, addr.lng]} height={160} zoom={16} markers={[{ id: 'a', lat: addr.lat, lng: addr.lng, label: 'Service location', kind: 'home' }]} /></div>)}
                 {errs.geo && <p role="alert" className="mt-2 text-xs font-medium text-red-600">{errs.geo}</p>}
