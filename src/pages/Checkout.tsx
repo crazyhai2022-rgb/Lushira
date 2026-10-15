@@ -31,7 +31,7 @@ export default function Checkout() {
   const [slot, setSlot] = useState<string | null>(null)
   const [staffId, setStaffId] = useState<string>('')
   const [name, setName] = useState(profile?.full_name ?? '')
-  const [phone, setPhone] = useState(profile?.phone ?? '')
+  const [phone, setPhone] = useState(profile?.phone ?? (user?.phone ? user.phone.replace(/^91/, '') : ''))
   const [when, setWhen] = useState<'now' | 'later'>('now')
   const [notes, setNotes] = useState('')
   const [addr, setAddr] = useState<Addr>(emptyAddr)
@@ -45,7 +45,7 @@ export default function Checkout() {
   const [placeQ, setPlaceQ] = useState('')
   const [hits, setHits] = useState<PlaceHit[]>([])
 
-  useEffect(() => { if (profile) { setName((n) => n || profile.full_name); setPhone((p) => p || profile.phone || '') } }, [profile])
+  useEffect(() => { if (profile) { setName((n) => n || profile.full_name); setPhone((p) => p || profile.phone || (user?.phone ? user.phone.replace(/^91/, '') : '')) } }, [profile, user])
 
   const salonId = cart.salon?.id ?? ''
   const totalMin = cart.totalMinutes
@@ -124,7 +124,12 @@ export default function Checkout() {
     }
     if (!pay) e.pay = 'Select a payment method'
     setErrs(e)
-    return Object.keys(e).length === 0
+    const keys = Object.keys(e)
+    if (keys.length) {
+      toast.error(Object.values(e)[0])
+      setTimeout(() => { document.querySelector('[role="alert"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, 50)
+    }
+    return keys.length === 0
   }
 
   const submit = async (ev: FormEvent) => {
