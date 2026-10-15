@@ -8,6 +8,7 @@ import { AuthProvider } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
 import { CartProvider } from './context/CartContext'
 import { LocationProvider } from './context/LocationContext'
+import ErrorBoundary from './components/ErrorBoundary'
 import { registerSW } from 'virtual:pwa-register'
 
 registerSW({ immediate: true })
@@ -24,7 +25,7 @@ createRoot(document.getElementById('root')!).render(
           <AuthProvider>
             <LocationProvider>
               <CartProvider>
-                <App />
+                <ErrorBoundary><App /></ErrorBoundary>
               </CartProvider>
             </LocationProvider>
           </AuthProvider>
