@@ -17,7 +17,7 @@ export function useChatDelivery() {
   const { user } = useAuth()
   useEffect(() => {
     if (!user) return
-    const ch = supabase.channel(`chat-delivery-${user.id}`)
+    const ch = supabase.channel(`chat-delivery-${user.id}-${Math.random().toString(36).slice(2, 8)}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'booking_messages' }, (p) => {
         const m = p.new as ChatMsg
         if (m.sender_id !== user.id) void supabase.rpc('mark_messages_delivered', { p_booking_id: m.booking_id })
@@ -39,7 +39,7 @@ export function useUnread(bookingId: string, enabled = true) {
   })
   useEffect(() => {
     if (!enabled || !user) return
-    const ch = supabase.channel(`chat-unread-${bookingId}`)
+    const ch = supabase.channel(`chat-unread-${bookingId}-${Math.random().toString(36).slice(2, 8)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_messages', filter: `booking_id=eq.${bookingId}` }, () => void qc.invalidateQueries({ queryKey: ['chat-unread', bookingId] }))
       .subscribe()
     return () => { void supabase.removeChannel(ch) }
@@ -101,7 +101,7 @@ export default function BookingChat({ bookingId, title, phone, onClose }: { book
 
   useEffect(() => {
     markRead()
-    const ch = supabase.channel(`chat-${bookingId}`)
+    const ch = supabase.channel(`chat-${bookingId}-${Math.random().toString(36).slice(2, 8)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_messages', filter: `booking_id=eq.${bookingId}` }, (p) => {
         void qc.invalidateQueries({ queryKey: ['chat', bookingId] })
         if (p.eventType === 'INSERT' && (p.new as ChatMsg).sender_id !== me) markRead()

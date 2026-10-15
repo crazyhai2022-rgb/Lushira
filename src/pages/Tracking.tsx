@@ -63,7 +63,7 @@ export default function Tracking() {
   const trackable = !!b && b.mode === 'home' && ['provider_assigned', 'on_the_way', 'in_progress'].includes(b.status)
 
   useEffect(() => {
-    const ch = supabase.channel(`track-${id}`)
+    const ch = supabase.channel(`track-${id}-${Math.random().toString(36).slice(2, 8)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `id=eq.${id}` }, () => { void qc.invalidateQueries({ queryKey: ['booking', id] }); void qc.invalidateQueries({ queryKey: ['history', id] }) })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'provider_locations', filter: `booking_id=eq.${id}` }, (p) => {
         const n = p.new as Partial<Loc> | undefined

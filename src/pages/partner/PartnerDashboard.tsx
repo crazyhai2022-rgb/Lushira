@@ -86,7 +86,7 @@ function StatusBanner({ salon }: { salon: Salon }) {
 function useSalonBookings(salonId: string) {
   const qc = useQueryClient()
   useEffect(() => {
-    const ch = supabase.channel(`pb-${salonId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `salon_id=eq.${salonId}` }, () => void qc.invalidateQueries({ queryKey: ['p-bookings', salonId] })).subscribe()
+    const ch = supabase.channel(`pb-${salonId}-${Math.random().toString(36).slice(2, 8)}`).on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `salon_id=eq.${salonId}` }, () => void qc.invalidateQueries({ queryKey: ['p-bookings', salonId] })).subscribe()
     return () => { void supabase.removeChannel(ch) }
   }, [salonId, qc])
   return useQuery({
