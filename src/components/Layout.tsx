@@ -49,7 +49,7 @@ function Header() {
           <ShoppingBag className="h-5 w-5" />
           {cart.count > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-lush-600 px-1 text-[10px] font-bold text-white">{cart.count}</span>}
         </Link>
-        <Link to={user ? '/profile' : '/login'} className="hidden rounded-full bg-blush-200 p-2 text-lush-700 hover:bg-blush-300 sm:block" aria-label="Account"><User className="h-5 w-5" /></Link>
+        <Link to={user ? '/profile' : '/signup'} className="hidden rounded-full bg-blush-200 p-2 text-lush-700 hover:bg-blush-300 sm:block" aria-label="Account"><User className="h-5 w-5" /></Link>
         <button className="rounded-full p-2 text-plum-800 hover:bg-blush-100 lg:hidden" aria-label="Menu" aria-expanded={open} onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button>
       </div>
 
@@ -72,7 +72,7 @@ function Header() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Link to="/login" className="btn btn-primary w-full">Log in</Link>
+                  <Link to="/signup" className="btn btn-primary w-full">Sign up / Log in</Link>
                   <Link to="/signup" className="btn btn-outline w-full">Create account</Link>
                 </div>
               )}
@@ -162,11 +162,11 @@ export default function Layout() {
   )
 }
 
-export function RequireAuth({ role, children, loginPath = '/login' }: { role?: 'admin' | 'partner'; children: React.ReactNode; loginPath?: string }) {
+export function RequireAuth({ role, children, loginPath }: { role?: 'admin' | 'partner'; children: React.ReactNode; loginPath?: string }) {
   const { user, loading, isAdmin, isPartner } = useAuth()
   const { pathname, search } = useLocation()
   if (loading) return <div className="flex h-[50vh] items-center justify-center text-lush-600"><Spinner className="h-8 w-8" /></div>
-  if (!user) return <Navigate to={`${loginPath}?next=${encodeURIComponent(pathname + search)}`} replace />
+  if (!user) return <Navigate to={`${loginPath ?? (role === 'admin' ? '/login' : '/signup')}?next=${encodeURIComponent(pathname + search)}`} replace />
   if (role === 'admin' && !isAdmin) return <Navigate to="/403" replace />
   if (role === 'partner' && !isPartner) return <Navigate to="/partner" replace />
   return <>{children}</>

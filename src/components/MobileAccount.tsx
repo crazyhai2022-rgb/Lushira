@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { KeyRound, Smartphone } from 'lucide-react'
 import { Field, Spinner } from './ui'
+import PasswordInput from './PasswordInput'
 import { cleanMobile, loginWithMobilePassword, sendMobileOtp, verifyMobileOtp, type OtpPurpose } from '../lib/mobileAuth'
 
 /** Mobile-number-only signup / login / password reset with OTP. Calls onAuthed() once signed in. */
@@ -84,7 +85,7 @@ export default function MobileAccount({ mode, onAuthed }: { mode: 'login' | 'sig
         </div>
         <form onSubmit={method === 'password' ? passwordLogin : (e) => { e.preventDefault(); send() }} className="space-y-4" noValidate>
           {mobileField}
-          {method === 'password' && <Field label="Password" required><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></Field>}
+          {method === 'password' && <Field label="Password" required><PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></Field>}
           {err && <p role="alert" className="text-sm text-red-600">{err}</p>}
           <button className="btn btn-primary w-full" disabled={busy}>{busy ? <Spinner /> : method === 'password' ? 'Log in' : 'Send OTP'}</button>
           {method === 'password' && <button type="button" className="w-full text-center text-sm text-muted underline" onClick={() => { setReset(true); setPassword(''); setErr('') }}>Forgot password?</button>}
@@ -98,7 +99,7 @@ export default function MobileAccount({ mode, onAuthed }: { mode: 'login' | 'sig
       {reset && <p className="text-sm text-muted">Enter your mobile number and a new password. We will send an OTP to confirm it is you.</p>}
       {signup && <Field label="Full name" required><input className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></Field>}
       {mobileField}
-      <Field label={reset ? 'New password' : 'Create password'} required hint="At least 8 characters. You can use it to log in later."><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" /></Field>
+      <Field label={reset ? 'New password' : 'Create password'} required hint="At least 8 characters. You can use it to log in later."><PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" /></Field>
       {signup && <label className="flex items-start gap-2 text-xs text-muted"><input type="checkbox" className="mt-0.5 accent-lush-600" checked={terms} onChange={(e) => setTerms(e.target.checked)} />I agree to the <Link to="/terms" className="underline">Terms</Link> and <Link to="/privacy" className="underline">Privacy Policy</Link>.</label>}
       {err && <p role="alert" className="text-sm text-red-600">{err}</p>}
       <button className="btn btn-primary w-full" disabled={busy}>{busy ? <Spinner /> : 'Send OTP'}</button>

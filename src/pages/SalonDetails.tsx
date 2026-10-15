@@ -51,7 +51,7 @@ export default function SalonDetails() {
   })
   const toggleFav = useMutation({
     mutationFn: async () => {
-      if (!user) { nav(`/login?next=/salon/${slug}`); return }
+      if (!user) { nav(`/signup?next=/salon/${slug}`); return }
       if (fav.data) await supabase.from('favorites').delete().eq('salon_id', s!.id).eq('user_id', user.id)
       else { const r = await supabase.from('favorites').insert({ salon_id: s!.id, user_id: user.id }); if (r.error) throw r.error }
     },
