@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, NavLink, Outlet, useLocation, Navigate } from 'react-router-dom'
 import { CalendarCheck, ChevronDown, Home, LayoutGrid, Mail, MapPin, Menu, Navigation, Phone, ShoppingBag, User, X } from 'lucide-react'
 import { Logo, LogoMark, Spinner } from './ui'
@@ -23,6 +24,15 @@ function Header() {
   const [open, setOpen] = useState(false)
   const { pathname } = useLocation()
   useEffect(() => setOpen(false), [pathname])
+  // lock page scroll + Esc to close while the drawer is open
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey) }
+  }, [open])
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur">
@@ -54,18 +64,18 @@ function Header() {
         <button className="rounded-full p-2 text-plum-800 hover:bg-blush-100 lg:hidden" aria-label="Menu" aria-expanded={open} onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button>
       </div>
 
-      {open && (
-        <div className="fixed inset-0 z-50 bg-plum-950/50 lg:hidden" onClick={() => setOpen(false)}>
-          <aside className="animate-pop absolute right-0 top-0 h-full w-72 max-w-[85%] overflow-y-auto bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()} aria-label="Menu">
-            <div className="mb-4 flex items-center justify-between"><LogoMark size="h-10 w-10" /><button aria-label="Close menu" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button></div>
-            <ul className="space-y-1 text-sm font-medium text-plum-800">
+      {open && createPortal(
+        <div className="animate-fade-in fixed inset-0 z-[100] bg-plum-950/50 lg:hidden" onClick={() => setOpen(false)}>
+          <aside className="animate-slide-in absolute right-0 top-0 flex h-full w-[82%] max-w-xs flex-col overflow-y-auto bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl" onClick={(e) => e.stopPropagation()} aria-label="Menu">
+            <div className="mb-4 flex items-center justify-between"><LogoMark size="h-10 w-10" /><button aria-label="Close menu" className="rounded-full p-2 hover:bg-blush-100" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button></div>
+            <ul className="mb-4 space-y-1 text-sm font-medium text-plum-800">
               {[...NAV, { to: '/services', label: 'All Services' }, { to: '/partner/register', label: 'Register as Partner' }, { to: '/help', label: 'Help & Support' }, { to: '/about', label: 'About Lushira' }].map((n) => (
                 <li key={n.to}><Link to={n.to} className="block rounded-lg px-3 py-2.5 hover:bg-blush-100">{n.label}</Link></li>
               ))}
               {isPartner && <li><Link to="/partner/dashboard" className="block rounded-lg px-3 py-2.5 text-lush-700 hover:bg-blush-100">Partner dashboard</Link></li>}
               {isAdmin && <li><Link to="/admin" className="block rounded-lg px-3 py-2.5 text-lush-700 hover:bg-blush-100">Admin dashboard</Link></li>}
             </ul>
-            <div className="mt-5 border-t border-line pt-4">
+            <div className="mt-auto border-t border-line pt-4">
               {user ? (
                 <div className="space-y-2">
                   <Link to="/profile" className="btn btn-outline w-full">My profile</Link>
@@ -73,14 +83,14 @@ function Header() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Link to="/signup" className="btn btn-primary w-full">Sign up / Log in</Link>
-                  <Link to="/signup" className="btn btn-outline w-full">Create account</Link>
+                  <Link to="/signup" className="btn btn-primary w-full">Sign up</Link>
+                  <Link to="/login" className="btn btn-outline w-full">Log in</Link>
                 </div>
               )}
             </div>
           </aside>
-        </div>
-      )}
+        </div>,
+        document.body)}
     </header>
   )
 }
