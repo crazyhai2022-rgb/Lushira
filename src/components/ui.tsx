@@ -14,6 +14,22 @@ export function Logo({ className = 'h-10' }: { className?: string }) {
   )
 }
 
+export function LogoMark({ size = 'h-10 w-10 sm:h-11 sm:w-11', text = true, light = false }: { size?: string; text?: boolean; light?: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-2.5">
+      <span className={`${size} flex shrink-0 items-center justify-center rounded-xl bg-logo p-1.5 shadow-md shadow-plum-900/20`}>
+        <img src="/brand/logo-mark.png" alt={text ? '' : 'Lushira'} width={40} height={40} className="h-full w-full object-contain" />
+      </span>
+      {text && (
+        <span className="leading-none">
+          <span className={`block font-display text-[15px] font-semibold tracking-[0.1em] sm:text-xl sm:tracking-[0.14em] ${light ? 'text-white' : 'text-plum-900'}`}>LUSHIRA</span>
+          <span className={`mt-1 hidden text-[8px] font-medium uppercase tracking-[0.2em] sm:block ${light ? 'text-gold-300' : 'text-gold-500'}`}>Beauty at your doorstep</span>
+        </span>
+      )}
+    </span>
+  )
+}
+
 export const Spinner = ({ className = 'h-5 w-5' }: { className?: string }) => <Loader2 className={`${className} animate-spin`} aria-label="Loading" />
 
 export const Skeleton = ({ className = '' }: { className?: string }) => <div className={`skeleton rounded-xl ${className}`} aria-hidden />

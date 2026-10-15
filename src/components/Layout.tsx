@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, Navigate } from 'react-router-dom'
 import { CalendarCheck, ChevronDown, Home, LayoutGrid, Mail, MapPin, Menu, Navigation, Phone, ShoppingBag, User, X } from 'lucide-react'
-import { Logo, Spinner } from './ui'
+import { Logo, LogoMark, Spinner } from './ui'
 import LocationModal from './LocationModal'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
@@ -27,7 +27,7 @@ function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur">
       <div className="container-x flex h-16 items-center gap-3">
-        <Link to="/" aria-label="Lushira home" className="shrink-0"><Logo className="h-10" /></Link>
+        <Link to="/" aria-label="Lushira home" className="shrink-0"><LogoMark /></Link>
 
         <nav className="ml-4 hidden items-center gap-6 lg:flex" aria-label="Main">
           {NAV.map((n) => (
@@ -56,7 +56,7 @@ function Header() {
       {open && (
         <div className="fixed inset-0 z-50 bg-plum-950/50 lg:hidden" onClick={() => setOpen(false)}>
           <aside className="animate-pop absolute right-0 top-0 h-full w-72 max-w-[85%] overflow-y-auto bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()} aria-label="Menu">
-            <div className="mb-4 flex items-center justify-between"><Logo className="h-9" /><button aria-label="Close menu" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button></div>
+            <div className="mb-4 flex items-center justify-between"><LogoMark size="h-10 w-10" /><button aria-label="Close menu" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button></div>
             <ul className="space-y-1 text-sm font-medium text-plum-800">
               {[...NAV, { to: '/services', label: 'All Services' }, { to: '/partner', label: 'Become a Partner' }, { to: '/help', label: 'Help & Support' }, { to: '/about', label: 'About Lushira' }].map((n) => (
                 <li key={n.to}><Link to={n.to} className="block rounded-lg px-3 py-2.5 hover:bg-blush-100">{n.label}</Link></li>
@@ -114,7 +114,7 @@ function Footer() {
     <footer className="mt-16 bg-logo pb-24 text-white lg:pb-0">
       <div className="container-x grid gap-8 py-10 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <Logo className="h-14" />
+          <LogoMark size="h-14 w-14" light />
           <p className="mt-3 text-sm text-white/70">Salon, parlour and at-home beauty services — booked in minutes.</p>
         </div>
         <div>

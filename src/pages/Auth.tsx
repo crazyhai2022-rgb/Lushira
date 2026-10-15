@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { friendlyError } from '../lib/errors'
 import { isEmail, normalizePhone } from '../lib/format'
-import { Field, Logo, Spinner } from '../components/ui'
+import { Field, LogoMark, Spinner } from '../components/ui'
 
 type Method = 'email' | 'password' | 'phone'
 const MAX_ATTEMPTS = 5
@@ -101,7 +101,7 @@ export default function Auth({ mode }: { mode: 'login' | 'signup' }) {
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-md items-center px-4 py-10">
       <div className="card w-full p-6 sm:p-8">
-        <div className="mb-4 flex justify-center"><Logo className="h-14" /></div>
+        <div className="mb-4 flex justify-center"><LogoMark size="h-14 w-14" /></div>
         <h1 className="text-center text-2xl font-semibold">{signup ? 'Create your account' : 'Welcome back'}</h1>
         <p className="mb-5 text-center text-sm text-muted">{signup ? 'Book beauty services in minutes.' : 'Log in to manage your bookings.'}</p>
 
