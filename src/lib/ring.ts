@@ -1,51 +1,64 @@
 import { useEffect, useRef, useState } from 'react'
 
 const KEY = 'lushira_order_ring'
+const VOL_KEY = 'lushira_order_ring_volume'
+const SRC = '/sounds/ring.mp3'
+
 export function useRingSetting() {
   const [on, setOn] = useState(() => { try { return localStorage.getItem(KEY) !== 'off' } catch { return true } })
   const set = (v: boolean) => { setOn(v); try { localStorage.setItem(KEY, v ? 'on' : 'off') } catch { /* ignore */ } }
   return [on, set] as const
 }
 
-let ctx: AudioContext | null = null
-function audio() {
-  const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-  if (!AC) return null
-  ctx = ctx ?? new AC()
-  if (ctx.state === 'suspended') void ctx.resume()
-  return ctx
-}
-/** One phone-style "ring-ring" (two double-beeps). */
-export function playRing() {
-  const c = audio()
-  if (!c) return
-  const t0 = c.currentTime + 0.02
-  ;[0, 0.22, 0.9, 1.12].forEach((o) => {
-    const osc = c.createOscillator(), g = c.createGain()
-    osc.type = 'sine'; osc.frequency.value = 880
-    g.gain.setValueAtTime(0.0001, t0 + o); g.gain.exponentialRampToValueAtTime(0.35, t0 + o + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + o + 0.18)
-    osc.connect(g).connect(c.destination); osc.start(t0 + o); osc.stop(t0 + o + 0.2)
-  })
-  try { navigator.vibrate?.([200, 100, 200]) } catch { /* ignore */ }
+/** Ring volume 0.1 – 1 (saved on this device). */
+export function useRingVolume() {
+  const [vol, setVol] = useState(() => { try { const v = parseFloat(localStorage.getItem(VOL_KEY) ?? ''); return v >= 0.1 && v <= 1 ? v : 0.8 } catch { return 0.8 } })
+  const set = (v: number) => { setVol(v); try { localStorage.setItem(VOL_KEY, String(v)) } catch { /* ignore */ } }
+  return [vol, set] as const
 }
 
-/** Rings repeatedly while `active` (there are unanswered orders) and ring is enabled. Unlocks audio on first tap. */
-export function useOrderRing(active: boolean, enabled: boolean) {
+let el: HTMLAudioElement | null = null
+function audio() {
+  if (!el) { el = new Audio(SRC); el.preload = 'auto' }
+  return el
+}
+
+/** Plays the ring tone once. Resolves false if the browser blocked it (needs a tap first). */
+export async function playRing(volume = 0.8): Promise<boolean> {
+  const a = audio()
+  a.volume = Math.min(1, Math.max(0, volume))
+  a.currentTime = 0
+  try { await a.play(); try { navigator.vibrate?.([300, 150, 300]) } catch { /* ignore */ } return true } catch { return false }
+}
+export function stopRing() { if (el) { el.pause(); el.currentTime = 0 } }
+
+/** Rings repeatedly while `active` (there are unanswered orders) and ring is enabled. */
+export function useOrderRing(active: boolean, enabled: boolean, volume: number) {
   const [blocked, setBlocked] = useState(false)
-  const timer = useRef<number | null>(null)
+  const vol = useRef(volume)
+  vol.current = volume
+  useEffect(() => { if (el) el.volume = volume }, [volume])
   useEffect(() => {
-    const unlock = () => { audio(); setBlocked(false) }
+    // first tap anywhere unlocks audio playback on phones/desktop
+    const unlock = () => { const a = audio(); a.muted = true; void a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; setBlocked(false) }).catch(() => { a.muted = false }) }
     window.addEventListener('pointerdown', unlock, { once: true })
     return () => window.removeEventListener('pointerdown', unlock)
   }, [])
   useEffect(() => {
-    if (timer.current) window.clearInterval(timer.current)
-    timer.current = null
-    if (!active || !enabled) return
-    const tick = () => { playRing(); setBlocked(ctx?.state !== 'running') }
-    tick()
-    timer.current = window.setInterval(tick, 3500)
-    return () => { if (timer.current) window.clearInterval(timer.current) }
+    if (!active || !enabled) { stopRing(); return }
+    let stopped = false
+    let timer: number | undefined
+    const a = audio()
+    const cycle = async () => {
+      if (stopped) return
+      const ok = await playRing(vol.current)
+      setBlocked(!ok)
+      if (!ok) { timer = window.setTimeout(() => void cycle(), 2000); return }
+    }
+    const onEnd = () => { if (!stopped) timer = window.setTimeout(() => void cycle(), 1200) }
+    a.addEventListener('ended', onEnd)
+    void cycle()
+    return () => { stopped = true; a.removeEventListener('ended', onEnd); if (timer) window.clearTimeout(timer); stopRing() }
   }, [active, enabled])
   return { blocked }
 }

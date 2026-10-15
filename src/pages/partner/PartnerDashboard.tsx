@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Banknote, Bell, ChevronDown, BellOff, BellRing, CalendarClock, CalendarDays, Check, IndianRupee, MapPin, Navigation, Phone, Radio, X } from 'lucide-react'
+import { Banknote, Bell, ChevronDown, Volume1, Volume2, BellOff, BellRing, CalendarClock, CalendarDays, Check, IndianRupee, MapPin, Navigation, Phone, Radio, X } from 'lucide-react'
 import { useMySalon } from './PartnerRegister'
 import { BOOKING_SELECT } from '../../lib/api'
 import { supabase } from '../../lib/supabase'
@@ -14,7 +14,7 @@ import { EmptyState, ErrorState, PageHero, Skeleton } from '../../components/ui'
 import { PayBadge, StatusBadge } from '../../components/booking'
 import MapView from '../../components/MapView'
 import BookingChat, { CHAT_STATUSES, ChatButton, useChatDelivery } from '../../components/BookingChat'
-import { playRing, useOrderRing, useRingSetting } from '../../lib/ring'
+import { playRing, useOrderRing, useRingSetting, useRingVolume } from '../../lib/ring'
 import { BrandsEditor, HoursEditor, PhotosEditor, ServicesEditor, StaffEditor } from './editors'
 import type { Booking, BookingStatus, Salon } from '../../lib/types'
 
@@ -59,17 +59,25 @@ function OrderAlert({ salon, open }: { salon: Salon; open: () => void }) {
   const q = useSalonBookings(salon.id)
   const [on, setOn] = useRingSetting()
   const pending = (q.data ?? []).filter((b) => b.status === 'pending' && !(b.payment_method === 'razorpay' && b.payment_status !== 'paid')).length
-  const { blocked } = useOrderRing(pending > 0, on)
+  const [vol, setVol] = useRingVolume()
+  const { blocked } = useOrderRing(pending > 0, on, vol)
   return (
     <div className="mb-4 space-y-2">
       <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-white p-3">
         <div className="flex items-center gap-2 text-sm">{on ? <BellRing className="h-5 w-5 text-lush-600" /> : <BellOff className="h-5 w-5 text-muted" />}<span className="font-medium">New order ring</span><span className={`chip ${on ? 'bg-green-100 text-green-800' : ''}`}>{on ? 'ON' : 'OFF'}</span></div>
         <div className="flex items-center gap-2">
-          {on && <button type="button" className="btn btn-ghost btn-sm" onClick={playRing}>Test</button>}
-          <button type="button" role="switch" aria-checked={on} aria-label="Order ring on or off" onClick={() => { setOn(!on); if (!on) playRing() }}
+          {on && <button type="button" className="btn btn-ghost btn-sm" onClick={() => void playRing(vol)}>Test</button>}
+          <button type="button" role="switch" aria-checked={on} aria-label="Order ring on or off" onClick={() => { setOn(!on); if (!on) void playRing(vol) }}
             className={`relative h-7 w-12 rounded-full transition ${on ? 'bg-lush-600' : 'bg-blush-300'}`}><span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${on ? 'left-[22px]' : 'left-0.5'}`} /></button>
         </div>
       </div>
+      {on && (
+        <div className="flex items-center gap-3 rounded-xl border border-line bg-white px-3 py-2">
+          <Volume1 className="h-4 w-4 shrink-0 text-muted" />
+          <input type="range" min={10} max={100} step={5} value={Math.round(vol * 100)} aria-label="Ring volume" className="h-2 flex-1 accent-lush-600"
+            onChange={(e) => setVol(Number(e.target.value) / 100)} onPointerUp={() => void playRing(vol)} onKeyUp={() => void playRing(vol)} />
+          <Volume2 className="h-5 w-5 shrink-0 text-lush-600" /><span className="w-10 text-right text-xs font-medium">{Math.round(vol * 100)}%</span>
+        </div>)}
       {pending > 0 && (
         <button type="button" onClick={open} className="flex w-full items-center justify-between gap-3 rounded-xl bg-gradient-to-r from-lush-600 to-plum-700 p-3 text-left text-white shadow-lg">
           <span className="flex items-center gap-2 font-semibold"><BellRing className="h-5 w-5 animate-pulse" />{pending} new booking request{pending > 1 ? 's' : ''}!</span><span className="text-sm underline">View &amp; accept</span>
