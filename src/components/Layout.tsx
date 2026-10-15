@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { usePlace } from '../context/LocationContext'
 import { BRAND } from '../lib/supabase'
+import { useChatDelivery } from './BookingChat'
 
 const NAV = [
   { to: '/', label: 'Home', end: true },
@@ -158,6 +159,7 @@ function Footer() {
 export default function Layout() {
   const { pathname } = useLocation()
   const { loading, isPartner, isAdmin } = useAuth()
+  useChatDelivery()
   useEffect(() => { window.scrollTo({ top: 0 }) }, [pathname])
   // Partners get their own portal; the customer website is not shown to them.
   if (!loading && isPartner && !isAdmin) return <Navigate to="/partner/dashboard" replace />

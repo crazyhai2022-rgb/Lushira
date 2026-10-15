@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, MapPin, Navigation, Phone } from 'lucide-react'
+import { Check, Clock, MapPin, Navigation, Phone } from 'lucide-react'
 import { getBooking, getMyBookings } from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { fmtDateTime, fmtTime, inr } from '../lib/format'
 import { EmptyState, ErrorState, PageHero, Skeleton } from '../components/ui'
 import { ACTIVE, CANCELLABLE, PayBadge, StatusBadge, useCancelBooking } from '../components/booking'
 import MapView, { type MapMarker } from '../components/MapView'
+import BookingChat, { CHAT_STATUSES, ChatButton } from '../components/BookingChat'
 import type { BookingStatus } from '../lib/types'
 
 const HOME_FLOW: BookingStatus[] = ['pending', 'confirmed', 'provider_assigned', 'on_the_way', 'in_progress', 'completed']
@@ -42,6 +43,9 @@ export default function Tracking() {
   const qc = useQueryClient()
   const cancel = useCancelBooking()
   const [loc, setLoc] = useState<Loc | null>(null)
+  const [chatOpen, setChatOpen] = useState(false)
+  const [, tick] = useState(0)
+  useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 30_000); return () => clearInterval(t) }, [])
   const bq = useQuery({ queryKey: ['booking', id], queryFn: () => getBooking(id) })
   const hist = useQuery({
     queryKey: ['history', id],
@@ -95,6 +99,7 @@ export default function Tracking() {
     markers.push({ id: 'salon', lat: salonLat, lng: salonLng, label: b.salons?.name ?? 'Salon' }); center = [salonLat, salonLng]
   }
   const km = loc && destLat != null && destLng != null ? haversine(loc.lat, loc.lng, destLat, destLng) : null
+  const eta = km != null ? etaFor(km) : null
   const stale = loc ? Date.now() - new Date(loc.recorded_at).getTime() > 3 * 60_000 : false
 
   return (
@@ -128,7 +133,15 @@ export default function Tracking() {
             <>
               <MapView center={center} markers={markers} height={280} zoom={15} />
               {b.mode === 'home' && trackable && !loc && <p className="rounded-xl bg-blush-100 p-3 text-sm text-muted">Live location will appear here once your beautician starts sharing it.</p>}
-              {b.mode === 'home' && loc && <p className="text-sm">{km != null && <>About <strong>{km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`}</strong> away (straight line). </>}{stale && <span className="text-amber-700">Location last updated {fmtTime(loc.recorded_at)}.</span>}</p>}
+              {b.mode === 'home' && loc && b.status !== 'in_progress' && (
+                <div className="card flex items-center gap-3 border-lush-200 bg-gradient-to-r from-blush-50 to-white p-4">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-lush-600 text-white"><Clock className="h-5 w-5" /></span>
+                  <div className="min-w-0">
+                    {eta ? <p className="font-display text-xl font-semibold">{eta.text}</p> : <p className="font-semibold">Calculating…</p>}
+                    <p className="text-xs text-muted">{km != null && <>{km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`} away · </>}{eta?.at && <>arriving around {eta.at} · </>}live location, updated {fmtTime(loc.recorded_at)}{stale && <span className="text-amber-700"> (signal weak)</span>}</p>
+                  </div>
+                </div>)}
+              {b.mode === 'home' && b.status === 'in_progress' && <p className="rounded-xl bg-green-50 p-3 text-sm font-medium text-green-800">Your beautician has arrived — service in progress.</p>}
               {b.mode === 'salon' && salonLat != null && <a className="btn btn-outline btn-sm" target="_blank" rel="noopener noreferrer" href={`https://www.google.com/maps/dir/?api=1&destination=${salonLat},${salonLng}`}><Navigation className="h-4 w-4" />Get directions</a>}
             </>
           ) : <div className="card p-5 text-sm text-muted"><MapPin className="mb-1 h-5 w-5 text-lush-600" />Map is not available for this booking.</div>}
@@ -136,13 +149,23 @@ export default function Tracking() {
             <p className="font-semibold">Contact</p>
             {contact.data?.provider_name && <p>Your beautician: {contact.data.provider_name}</p>}
             {contact.data?.salon_phone ? <a className="btn btn-primary btn-sm" href={`tel:${contact.data.salon_phone}`}><Phone className="h-4 w-4" />Call {contact.data.salon_name}</a> : <p className="text-muted">Salon contact number not available.</p>}
+            {CHAT_STATUSES.includes(b.status) && <ChatButton bookingId={b.id} onOpen={() => setChatOpen(true)} className="btn btn-outline btn-sm ml-2" />}
             {CANCELLABLE.includes(b.status) && <button className="btn btn-ghost btn-sm" onClick={() => cancel.ask(b.id)}>Cancel booking</button>}
           </div>
         </section>
       </div>
       {cancel.dialog}
+      {chatOpen && <BookingChat bookingId={b.id} title={contact.data?.salon_name ?? b.salons?.name ?? 'Salon'} phone={contact.data?.salon_phone} onClose={() => setChatOpen(false)} />}
     </div>
   )
+}
+
+/** Rough arrival time: ~7.5–10 min per km in city traffic (2 km → 15–20 min). */
+function etaFor(km: number): { text: string; at: string } {
+  if (km < 0.15) return { text: 'Arriving now', at: '' }
+  const lo = Math.max(3, Math.round(km * 7.5)), hi = Math.max(lo + 3, Math.round(km * 10))
+  const at = fmtTime(new Date(Date.now() + ((lo + hi) / 2) * 60_000).toISOString())
+  return { text: `Arrives in ${lo}–${hi} min`, at }
 }
 
 function haversine(a: number, b: number, c: number, d: number) {
