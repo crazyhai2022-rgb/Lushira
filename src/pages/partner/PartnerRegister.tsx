@@ -95,10 +95,14 @@ function AccountStep({ onDone }: { onDone: () => Promise<void> }) {
   }
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-1 rounded-full bg-blush-100 p-1" role="tablist" aria-label="Sign up or log in">
+        {([['signup', 'Sign Up'], ['login', 'Login']] as const).map(([k, l]) => (
+          <button key={k} type="button" role="tab" aria-selected={mode === k} onClick={() => setMode(k)}
+            className={`rounded-full py-2.5 text-sm font-semibold transition ${mode === k ? 'bg-white text-lush-600 shadow' : 'text-muted'}`}>{l}</button>
+        ))}
+      </div>
       <h2 className="font-display text-xl font-semibold">{mode === 'signup' ? 'Create your partner account' : 'Log in to continue'}</h2>
       <MobileAccount mode={mode} onAuthed={authed} />
-      <p className="text-center text-sm text-muted">{mode === 'signup' ? 'Already registered?' : 'New partner?'} <button type="button" className="font-semibold text-lush-600" onClick={() => setMode(mode === 'signup' ? 'login' : 'signup')}>{mode === 'signup' ? 'Log in' : 'Create account'}</button></p>
-      <p className="text-center text-xs text-muted">By continuing you agree to our <Link className="underline" to="/terms">Terms</Link> and <Link className="underline" to="/privacy">Privacy Policy</Link>.</p>
     </div>
   )
 }
