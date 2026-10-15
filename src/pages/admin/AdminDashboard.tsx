@@ -8,6 +8,7 @@ import { useToast } from '../../context/ToastContext'
 import { EmptyState, ErrorState, Modal, PageHero, Skeleton, VerifiedBadge } from '../../components/ui'
 import { StatusBadge } from '../../components/booking'
 import { Crud } from './Crud'
+import { uploadSalonImage } from '../partner/editors'
 import type { Booking } from '../../lib/types'
 
 type Tab = 'overview' | 'salons' | 'bookings' | 'payments' | 'catalog' | 'brands' | 'marketing' | 'reviews' | 'support' | 'settings'
@@ -57,21 +58,20 @@ function Overview({ go }: { go: (t: Tab) => void }) {
   return <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">{cards.map(([l, v, t]) => <button key={l} onClick={() => go(t)} className="card p-4 text-left hover:shadow-md"><p className="font-display text-3xl font-semibold">{v ?? '…'}</p><p className="text-xs text-muted">{l}</p></button>)}</div>
 }
 
-interface SalonRow { id: string; name: string; status: string; area: string | null; city: string | null; contact_phone: string | null; contact_email: string | null; created_at: string; featured: boolean; verified: boolean; is_brand: boolean; brand_name: string | null; brand_logo_url: string | null; brand_verified: boolean; rejection_reason: string | null; address_line: string | null }
+interface SalonRow { id: string; name: string; status: string; area: string | null; city: string | null; contact_phone: string | null; contact_email: string | null; created_at: string; featured: boolean; verified: boolean; is_brand: boolean; brand_name: string | null; brand_logo_url: string | null; logo_url: string | null; brand_verified: boolean; rejection_reason: string | null; address_line: string | null }
 function Salons() {
   const qc = useQueryClient()
   const toast = useToast()
   const [filter, setFilter] = useState('pending')
   const [dec, setDec] = useState<{ id: string; decision: 'rejected' | 'suspended'; name: string } | null>(null)
   const [reason, setReason] = useState('')
-  const q = useQuery({ queryKey: ['a-salons'], queryFn: async () => { const r = await supabase.from('salons').select('id,name,status,area,city,contact_phone,contact_email,created_at,featured,verified,is_brand,brand_name,brand_logo_url,brand_verified,rejection_reason,address_line').order('created_at', { ascending: false }).limit(200); if (r.error) throw r.error; return r.data as SalonRow[] } })
+  const q = useQuery({ queryKey: ['a-salons'], queryFn: async () => { const r = await supabase.from('salons').select('id,name,status,area,city,contact_phone,contact_email,created_at,featured,verified,is_brand,brand_name,brand_logo_url,logo_url,brand_verified,rejection_reason,address_line').order('created_at', { ascending: false }).limit(200); if (r.error) throw r.error; return r.data as SalonRow[] } })
   const review = useMutation({
     mutationFn: async (p: { id: string; decision: string; reason?: string }) => { const r = await supabase.rpc('admin_review_salon', { p_salon_id: p.id, p_decision: p.decision, p_reason: p.reason ?? null }); if (r.error) throw r.error },
     onSuccess: () => { setDec(null); setReason(''); toast.success('Updated.'); void qc.invalidateQueries({ queryKey: ['a-salons'] }) }, onError: (e) => toast.error(friendlyError(e)),
   })
   const feature = useMutation({ mutationFn: async (s: SalonRow) => { const r = await supabase.from('salons').update({ featured: !s.featured }).eq('id', s.id); if (r.error) throw r.error }, onSuccess: () => void qc.invalidateQueries({ queryKey: ['a-salons'] }), onError: (e) => toast.error(friendlyError(e)) })
   const verify = useMutation({ mutationFn: async (s: SalonRow) => { const r = await supabase.from('salons').update({ verified: !s.verified }).eq('id', s.id); if (r.error) throw r.error; return !s.verified }, onSuccess: (v) => { toast.success(v ? 'Salon verified — blue tick added.' : 'Verification removed.'); void qc.invalidateQueries({ queryKey: ['a-salons'] }) }, onError: (e) => toast.error(friendlyError(e)) })
-  const brandVerify = useMutation({ mutationFn: async (s: SalonRow) => { const r = await supabase.from('salons').update({ brand_verified: !s.brand_verified }).eq('id', s.id); if (r.error) throw r.error; return !s.brand_verified }, onSuccess: (v) => { toast.success(v ? 'Brand verified — it will show on the home page once the salon is approved.' : 'Brand verification removed.'); void qc.invalidateQueries({ queryKey: ['a-salons'] }) }, onError: (e) => toast.error(friendlyError(e)) })
   const list = (q.data ?? []).filter((s) => filter === 'all' || s.status === filter)
   return (
     <div>
@@ -81,12 +81,7 @@ function Salons() {
           <li key={s.id} className="card p-4 text-sm"><div className="flex flex-wrap items-start justify-between gap-2">
             <div><p className="font-semibold">{s.name} {s.verified && <VerifiedBadge className="h-5 w-5" />}</p><p className="text-muted">{[s.address_line, s.area, s.city].filter(Boolean).join(', ')}</p><p className="text-xs text-muted">{s.contact_phone} · {s.contact_email} · applied {fmtDateTime(s.created_at)}</p>{s.rejection_reason && <p className="text-xs text-red-600">Reason: {s.rejection_reason}</p>}</div>
             <div className="flex items-center gap-2">{s.featured && <span className="chip">Featured</span>}<span className="chip capitalize">{s.status}</span></div></div>
-            {s.is_brand && (
-              <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl bg-blush-50 p-3">
-                {s.brand_logo_url ? <img src={publicUrl(s.brand_logo_url)!} alt="" className="h-12 w-12 rounded-xl border border-line bg-white object-contain" /> : <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-blush-300 text-[10px] text-muted">No logo</span>}
-                <div className="min-w-0 flex-1"><p className="text-xs text-muted">Partner says this is a company / brand</p><p className="font-semibold">{s.brand_name}</p></div>
-                <label className="flex cursor-pointer items-center gap-2 text-sm font-medium"><input type="checkbox" className="h-5 w-5 accent-lush-600" checked={s.brand_verified} disabled={brandVerify.isPending} onChange={() => brandVerify.mutate(s)} />Brand verified</label>
-              </div>)}
+            <BrandPanel s={s} />
             <div className="mt-3 flex flex-wrap gap-2">
               {['pending', 'rejected', 'suspended'].includes(s.status) && <button className="btn btn-primary btn-sm" disabled={review.isPending} onClick={() => review.mutate({ id: s.id, decision: 'approved' })}><Check className="h-4 w-4" />Approve</button>}
               {['pending', 'approved'].includes(s.status) && <button className="btn btn-outline btn-sm" onClick={() => setDec({ id: s.id, decision: 'rejected', name: s.name })}><X className="h-4 w-4" />Reject</button>}
@@ -112,6 +107,53 @@ function Bookings() {
       {q.isLoading ? <Skeleton className="h-24" /> : q.isError ? <ErrorState onRetry={() => q.refetch()} /> : !list.length ? <EmptyState title="No bookings" /> : (
         <div className="card overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-blush-50 text-xs text-muted"><tr>{['Ref', 'Salon', 'Customer', 'When', 'Total', 'Payment', 'Status'].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-line">{list.map((b) => <tr key={b.id}><td className="px-3 py-2 font-mono text-xs">{b.reference}</td><td className="px-3 py-2">{b.salons?.name}</td><td className="px-3 py-2">{b.customer_name}<br /><span className="text-xs text-muted">{b.customer_phone}</span></td><td className="px-3 py-2">{fmtDateTime(b.scheduled_start)}</td><td className="px-3 py-2">{inr(b.total_inr)}</td><td className="px-3 py-2 text-xs">{b.payment_method} · {b.payment_status}</td><td className="px-3 py-2"><StatusBadge status={b.status} /></td></tr>)}</tbody></table></div>)}
+    </div>
+  )
+}
+
+/** Admin: mark a salon as a verified company/brand (shown in the home page "Shop by brands" strip). */
+function BrandPanel({ s }: { s: SalonRow }) {
+  const qc = useQueryClient()
+  const toast = useToast()
+  const [name, setName] = useState(s.brand_name ?? s.name)
+  const [busy, setBusy] = useState(false)
+  const refresh = () => qc.invalidateQueries({ queryKey: ['a-salons'] })
+  const save = async (patch: Record<string, unknown>, ok: string) => {
+    setBusy(true)
+    const r = await supabase.from('salons').update(patch).eq('id', s.id)
+    setBusy(false)
+    if (r.error) return toast.error(friendlyError(r.error))
+    toast.success(ok); void refresh()
+  }
+  const toggle = (on: boolean) => on
+    ? save({ is_brand: true, brand_verified: true, brand_name: (s.brand_name || s.name).trim() }, 'Marked as a verified brand. It shows on the home page once the salon is approved.')
+    : save({ brand_verified: false }, 'Brand verification removed.')
+  const upload = async (f: File) => {
+    setBusy(true)
+    try {
+      const path = await uploadSalonImage(s.id, f, 'brand')
+      const r = await supabase.from('salons').update({ brand_logo_url: path }).eq('id', s.id)
+      if (r.error) throw r.error
+      toast.success('Brand logo updated.'); void refresh()
+    } catch (e) { toast.error(friendlyError(e)) }
+    setBusy(false)
+  }
+  const logo = s.brand_logo_url ?? s.logo_url
+  return (
+    <div className="mt-3 rounded-xl bg-blush-50 p-3">
+      <div className="flex flex-wrap items-center gap-3">
+        {logo ? <img src={publicUrl(logo)!} alt="" className="h-12 w-12 rounded-xl border border-line bg-white object-contain" /> : <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-blush-300 text-[10px] text-muted">No logo</span>}
+        <div className="min-w-0 flex-1">
+          <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold"><input type="checkbox" className="h-5 w-5 accent-lush-600" checked={s.is_brand && s.brand_verified} disabled={busy} onChange={(e) => void toggle(e.target.checked)} />Verified brand / company</label>
+          <p className="text-xs text-muted">{s.is_brand && !s.brand_verified ? `Partner says this is a brand${s.brand_name ? `: ${s.brand_name}` : ''}. Tick to verify.` : 'Tick if this salon is a real brand or company. Its logo and name then appear in “Shop by brands” on the home page.'}</p>
+        </div>
+      </div>
+      {s.is_brand && s.brand_verified && (
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <label className="min-w-[180px] flex-1"><span className="label">Brand name</span><input className="input !py-1.5 text-sm" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} /></label>
+          <button type="button" className="btn btn-outline btn-sm" disabled={busy || name.trim().length < 2 || name.trim() === (s.brand_name ?? '')} onClick={() => void save({ brand_name: name.trim() }, 'Brand name saved.')}>Save name</button>
+          <label className="btn btn-outline btn-sm cursor-pointer">Upload brand logo<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); e.target.value = '' }} /></label>
+        </div>)}
     </div>
   )
 }

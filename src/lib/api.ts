@@ -89,9 +89,10 @@ export async function searchServices(p: ServiceSearch): Promise<ServiceHit[]> {
 export interface BrandSalon { id: string; slug: string; name: string; brand_name: string; brand_logo_url: string }
 /** Admin-verified company/brand salons shown in the home page brand strip. */
 export async function getBrandSalons(): Promise<BrandSalon[]> {
-  const r = await supabase.from('salons').select('id,slug,name,brand_name,brand_logo_url').eq('status', 'approved').eq('is_brand', true).eq('brand_verified', true).not('brand_logo_url', 'is', null).order('featured', { ascending: false }).order('brand_name').limit(30)
+  const r = await supabase.from('salons').select('id,slug,name,brand_name,brand_logo_url,logo_url').eq('status', 'approved').eq('is_brand', true).eq('brand_verified', true).order('featured', { ascending: false }).order('brand_name').limit(30)
   if (r.error) throw new Error(r.error.message)
-  return (r.data ?? []) as BrandSalon[]
+  // fall back to the salon's own logo when no separate brand logo was uploaded
+  return (r.data ?? []).filter((x) => x.brand_logo_url || x.logo_url).map((x) => ({ id: x.id, slug: x.slug, name: x.name, brand_name: x.brand_name || x.name, brand_logo_url: (x.brand_logo_url || x.logo_url) as string }))
 }
 
 export async function getBrands(): Promise<Brand[]> {
