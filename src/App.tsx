@@ -6,7 +6,6 @@ import Home from './pages/Home'
 import Categories from './pages/Categories'
 import Services from './pages/Services'
 import ServiceDetails from './pages/ServiceDetails'
-import Cart from './pages/Cart'
 import { About, Contact, Faq, Help, Privacy, Refund, Terms, NotFound, Forbidden } from './pages/Static'
 import PartnerLanding from './pages/partner/PartnerLanding'
 import PartnerShell from './pages/partner/PartnerShell'
@@ -41,8 +40,8 @@ export default function App() {
           <Route path="salon/:slug" element={<SalonDetails />} />
           <Route path="wedding" element={<Wedding />} />
           <Route path="brands" element={<Brands />} />
-          <Route path="cart" element={<Cart />} />
-          <Route path="checkout" element={<RequireAuth><Checkout /></RequireAuth>} />
+          <Route path="cart" element={<Checkout />} />
+          <Route path="checkout" element={<Checkout />} />
           <Route path="order/:id" element={<RequireAuth><OrderConfirmation /></RequireAuth>} />
           <Route path="orders" element={<RequireAuth><Orders /></RequireAuth>} />
           <Route path="track" element={<RequireAuth><TrackList /></RequireAuth>} />

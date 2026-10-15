@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Banknote, CalendarClock, CreditCard, Crosshair, MapPin, Tag, Zap } from 'lucide-react'
+import { Banknote, CalendarClock, Clock, CreditCard, Crosshair, MapPin, Minus, Plus, ShoppingBag, Tag, Trash2, Zap } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -12,7 +12,9 @@ import { dayLabel, duration, fmtTime, inr, istDate, normalizePhone } from '../li
 import { friendlyError } from '../lib/errors'
 import { searchPlaces, reverseGeocodeAddress, type PlaceHit } from '../lib/geocode'
 import { payForBooking } from '../lib/payment'
-import { Field, Spinner } from '../components/ui'
+import { EmptyState, Field, Spinner } from '../components/ui'
+import { publicUrl } from '../lib/supabase'
+import { categoryImage } from '../lib/api'
 import MapView from '../components/MapView'
 
 type Pay = 'razorpay' | 'cash'
@@ -21,7 +23,7 @@ const emptyAddr: Addr = { line1: '', landmark: '', area: '', city: '', pin_code:
 
 export default function Checkout() {
   const cart = useCart()
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
   const toast = useToast()
   const nav = useNavigate()
   const st = useSettings()
@@ -128,6 +130,7 @@ export default function Checkout() {
   const submit = async (ev: FormEvent) => {
     ev.preventDefault()
     if (!validate() || busy) return
+    if (!user) { toast.info('Please log in to confirm your booking.'); nav('/login?next=/cart'); return }
     setBusy(true)
     const r = await supabase.rpc('create_booking', {
       p_salon_id: salonId,
@@ -158,16 +161,39 @@ export default function Checkout() {
   }
 
   const saved = meta.data?.saved ?? []
-  if (!cart.items.length || !cart.salon) return <Navigate to="/cart" replace />
+  if (!cart.items.length || !cart.salon) return <div className="container-x py-12"><EmptyState icon={<ShoppingBag className="h-6 w-6" />} title="Your cart is empty" text="Add services from a salon to get started." action={<Link to="/services" className="btn btn-primary btn-sm">Browse services</Link>} /></div>
   return (
     <form onSubmit={submit} className="container-x py-8" noValidate>
-      <nav className="mb-2 text-xs text-muted"><Link to="/cart" className="hover:underline">Cart</Link> › Checkout</nav>
-      <h1 className="text-3xl font-semibold">Book your appointment</h1>
-      <p className="text-sm text-muted">{cart.salon.name} · {home ? 'At your home' : 'At the salon'} · {duration(totalMin)}</p>
+      <h1 className="text-3xl font-semibold">Your cart &amp; booking</h1>
+      <p className="text-sm text-muted"><Link to={`/salon/${cart.salon.slug}`} className="text-lush-600 hover:underline">{cart.salon.name}</Link> · {home ? 'At your home' : 'At the salon'} · {duration(totalMin)}</p>
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
         <div className="space-y-6">
           <section className="card p-5">
-            <h2 className="font-display text-xl font-semibold">1. When do you need us?</h2>
+            <h2 className="font-display text-xl font-semibold">1. Your cart</h2>
+            <div className="mt-3 space-y-3">
+              {cart.items.map((i) => (
+                <div key={i.id} className="flex gap-3">
+                  <img src={publicUrl(i.image) ?? categoryImage(null)} alt="" className="h-16 w-16 rounded-xl object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">{i.name}</p>
+                    <p className="flex items-center gap-1 text-xs text-muted"><Clock className="h-3.5 w-3.5" />{duration(i.duration)}</p>
+                    <p className="font-semibold text-lush-600">{inr(i.price)}</p>
+                  </div>
+                  <div className="flex flex-col items-end justify-between">
+                    <button type="button" aria-label={`Remove ${i.name}`} onClick={() => cart.remove(i.id)} className="text-muted hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
+                    <div className="flex items-center gap-2 rounded-full bg-blush-100 px-1">
+                      <button type="button" aria-label="Decrease" className="p-1.5" onClick={() => cart.setQty(i.id, i.qty - 1)}><Minus className="h-3.5 w-3.5" /></button>
+                      <span className="w-5 text-center text-sm font-semibold" aria-live="polite">{i.qty}</span>
+                      <button type="button" aria-label="Increase" className="p-1.5" onClick={() => cart.setQty(i.id, i.qty + 1)} disabled={i.qty >= 10}><Plus className="h-3.5 w-3.5" /></button>
+                    </div>
+                  </div>
+                </div>))}
+            </div>
+            <p className="mt-3 text-xs text-muted">Service at your home — the beautician comes to your address.</p>
+          </section>
+
+          <section className="card p-5">
+            <h2 className="font-display text-xl font-semibold">2. When do you need us?</h2>
             <div className="mt-3 grid grid-cols-2 gap-1 rounded-full bg-blush-100 p-1" role="tablist" aria-label="Order type">
               {([['now', 'Current order', Zap], ['later', 'Booking', CalendarClock]] as const).map(([k, l, Icon]) => (
                 <button key={k} type="button" role="tab" aria-selected={when === k} onClick={() => setWhen(k)}
@@ -202,7 +228,7 @@ export default function Checkout() {
           </section>
 
           <section className="card grid gap-3 p-5 sm:grid-cols-2">
-            <h2 className="font-display text-xl font-semibold sm:col-span-2">2. Your details</h2>
+            <h2 className="font-display text-xl font-semibold sm:col-span-2">3. Your details</h2>
             <Field label="Full name" required error={errs.name}><input className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></Field>
             <Field label="Mobile number" required error={errs.phone}><input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" placeholder="98765 43210" /></Field>
             <div className="sm:col-span-2"><Field label="Notes for the salon (optional)"><textarea className="input min-h-20" maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Allergies, preferences, parking info…" /></Field></div>
@@ -210,7 +236,7 @@ export default function Checkout() {
 
           {home && (
             <section className="card space-y-3 p-5">
-              <h2 className="font-display text-xl font-semibold">3. Service address</h2>
+              <h2 className="font-display text-xl font-semibold">4. Service address</h2>
               {saved.length > 0 && (
                 <div className="flex flex-wrap gap-2">{saved.map((a) => (
                   <button type="button" key={a.id} className="chip hover:bg-blush-200" onClick={() => setAddr({ line1: a.line1, landmark: a.landmark ?? '', area: a.area ?? '', city: a.city ?? '', pin_code: a.pin_code ?? '', lat: a.location?.coordinates?.[1] ?? null, lng: a.location?.coordinates?.[0] ?? null })}>
@@ -243,7 +269,7 @@ export default function Checkout() {
             </section>)}
 
           <section className="card p-5">
-            <h2 className="font-display text-xl font-semibold">{home ? '4' : '3'}. Payment</h2>
+            <h2 className="font-display text-xl font-semibold">{home ? '5' : '4'}. Payment</h2>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${pay === 'razorpay' ? 'border-lush-600 bg-blush-50' : 'border-line'} ${!razorOk ? 'opacity-60' : ''}`}>
                 <input type="radio" name="pay" className="mt-1 accent-lush-600" disabled={!razorOk} checked={pay === 'razorpay'} onChange={() => setPay('razorpay')} />
