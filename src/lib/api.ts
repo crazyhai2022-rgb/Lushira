@@ -26,7 +26,7 @@ export interface NearbyParams {
   limit?: number
 }
 export async function getNearbySalons(p: NearbyParams): Promise<SalonLite[]> {
-  return ok(
+  const rows = ok(
     await supabase.rpc('nearby_salons', {
       p_lat: p.lat,
       p_lng: p.lng,
@@ -37,9 +37,14 @@ export async function getNearbySalons(p: NearbyParams): Promise<SalonLite[]> {
       p_limit: p.limit ?? 50,
     }),
   ) as SalonLite[]
+  if (!rows.length) return rows
+  // blue-tick flag (kept out of the RPC so its signature stays stable)
+  const v = await supabase.from('salons').select('id,verified').in('id', rows.map((r) => r.id))
+  const flags = new Map((v.data ?? []).map((x) => [x.id as string, !!x.verified]))
+  return rows.map((r) => ({ ...r, verified: flags.get(r.id) ?? false }))
 }
 
-const SALON_LITE_COLS = 'id,name,slug,logo_url,cover_url,area,city,address_line,rating_avg,rating_count,home_service,featured,lat,lng'
+const SALON_LITE_COLS = 'id,name,slug,logo_url,cover_url,area,city,address_line,rating_avg,rating_count,home_service,featured,verified,lat,lng'
 export async function getSalonList(opts: { featured?: boolean; limit?: number; query?: string } = {}): Promise<SalonLite[]> {
   let q = supabase.from('salons').select(SALON_LITE_COLS + ',salon_services(price_inr)').eq('status', 'approved')
   if (opts.featured) q = q.eq('featured', true)

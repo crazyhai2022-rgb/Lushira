@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Clock, Heart, Home, MapPin, Navigation, Phone, Plus, Check, ShoppingBag, ShieldCheck } from 'lucide-react'
 import { getSalonBrandServices, getSalonBySlug, getSalonReviews, categoryImage } from '../lib/api'
-import { EmptyState, ErrorState, Skeleton, Stars } from '../components/ui'
+import { EmptyState, ErrorState, Skeleton, Stars, VerifiedBadge } from '../components/ui'
 import MapView from '../components/MapView'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
@@ -96,7 +96,7 @@ export default function SalonDetails() {
             {s.logo_url ? <img src={publicUrl(s.logo_url)!} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center font-display text-3xl text-lush-500">{s.name.charAt(0)}</div>}
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="text-2xl font-semibold sm:text-3xl">{s.name}</h1>
+            <h1 className="text-2xl font-semibold sm:text-3xl">{s.name}{s.verified && <> <VerifiedBadge className="h-6 w-6" /></>}</h1>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
               <Stars value={Number(s.rating_avg)} count={s.rating_count} />
               <span className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" />{[s.address_line, s.area, s.city].filter(Boolean).join(', ')}</span>

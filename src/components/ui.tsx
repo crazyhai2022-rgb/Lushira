@@ -152,3 +152,14 @@ export function SectionHeader({ title, to, linkText = 'View all' }: { title: str
     </div>
   )
 }
+
+/** Blue tick shown next to admin-verified salons. */
+export function VerifiedBadge({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" role="img" aria-label="Verified by Lushira" className={`inline-block shrink-0 align-[-2px] ${className}`}>
+      <title>Verified by Lushira</title>
+      <path fill="#1d9bf0" d="M22.5 12.5c0-1.58-.88-2.95-2.18-3.66.54-1.4.24-3.05-.88-4.17-1.12-1.12-2.77-1.42-4.17-.88C14.55 2.5 13.18 1.5 11.6 1.5S8.65 2.38 7.94 3.68c-1.4-.54-3.05-.24-4.17.88-1.12 1.12-1.42 2.77-.88 4.17C1.59 9.45.7 10.82.7 12.4s.88 2.95 2.18 3.66c-.54 1.4-.24 3.05.88 4.17 1.12 1.12 2.77 1.42 4.17.88.71 1.3 2.08 2.18 3.66 2.18s2.95-.88 3.66-2.18c1.4.54 3.05.24 4.17-.88 1.12-1.12 1.42-2.77.88-4.17 1.3-.71 2.18-2.08 2.18-3.66z" transform="translate(.4 -.4)"/>
+      <path fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" d="M7.6 12.4l3 3 5.8-6.2"/>
+    </svg>
+  )
+}

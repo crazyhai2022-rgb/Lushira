@@ -4,7 +4,7 @@ import type { Category, SalonLite, ServiceHit } from '../lib/types'
 import { categoryImage } from '../lib/api'
 import { distance, duration, inr } from '../lib/format'
 import { publicUrl } from '../lib/supabase'
-import { Stars } from './ui'
+import { Stars, VerifiedBadge } from './ui'
 
 export function CategoryCard({ c, compact }: { c: Category; compact?: boolean }) {
   return (
@@ -33,7 +33,7 @@ export function SalonCard({ s }: { s: SalonLite }) {
       </div>
       <div className="p-3.5">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="font-display text-lg font-semibold leading-tight">{s.name}</h3>
+          <h3 className="font-display text-lg font-semibold leading-tight">{s.name}{s.verified && <> <VerifiedBadge /></>}</h3>
           <Stars value={Number(s.rating_avg)} count={s.rating_count} />
         </div>
         <p className="mt-1 flex items-center gap-1 text-xs text-muted"><MapPin className="h-3.5 w-3.5 shrink-0" />{[s.area, s.city].filter(Boolean).join(', ') || s.address_line}</p>

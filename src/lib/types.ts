@@ -29,6 +29,7 @@ export interface SalonLite {
   rating_count: number
   home_service: boolean
   featured: boolean
+  verified?: boolean
   min_price: number | null
   distance_m: number | null
   lat: number | null
@@ -76,6 +77,7 @@ export interface Salon {
   status: SalonStatus
   rejection_reason: string | null
   featured: boolean
+  verified?: boolean
   home_service: boolean
   appointment_required: boolean
   walk_in: boolean
