@@ -1,15 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Clock, MapPin, Navigation, Phone } from 'lucide-react'
+import { BadgeCheck, Check, Clock, MapPin, Navigation, PartyPopper, Phone } from 'lucide-react'
 import { getBooking, getMyBookings } from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { fmtDateTime, fmtTime, inr } from '../lib/format'
-import { EmptyState, ErrorState, PageHero, Skeleton } from '../components/ui'
+import { EmptyState, ErrorState, PageHero, Skeleton, Spinner, StarInput } from '../components/ui'
+import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
+import { friendlyError } from '../lib/errors'
 import { ACTIVE, CANCELLABLE, PayBadge, StatusBadge, useCancelBooking } from '../components/booking'
 import MapView, { type MapMarker } from '../components/MapView'
 import BookingChat, { CHAT_STATUSES, ChatButton } from '../components/BookingChat'
-import type { BookingStatus } from '../lib/types'
+import type { Booking, BookingStatus } from '../lib/types'
 
 const HOME_FLOW: BookingStatus[] = ['pending', 'confirmed', 'provider_assigned', 'on_the_way', 'in_progress', 'completed']
 const SALON_FLOW: BookingStatus[] = ['pending', 'confirmed', 'in_progress', 'completed']
@@ -60,6 +63,14 @@ export default function Tracking() {
     queryFn: async () => { const r = await supabase.rpc('get_booking_contact', { p_booking_id: id }); if (r.error) throw r.error; return r.data as { salon_name: string; salon_phone: string | null; provider_name: string | null; salon_lat: number | null; salon_lng: number | null; salon_address: string } },
   })
   const b = bq.data
+  const toast = useToast()
+  const prevStatus = useRef<string | null>(null)
+  useEffect(() => {
+    if (!b) return
+    const MSG: Record<string, string> = { confirmed: 'Your booking is confirmed!', provider_assigned: 'A beautician has been assigned.', on_the_way: 'Your beautician is on the way!', in_progress: 'Your service has started.', completed: 'Service completed. Thank you!', cancelled: 'This booking was cancelled.', rejected: 'The salon could not accept this booking.' }
+    if (prevStatus.current && prevStatus.current !== b.status && MSG[b.status]) toast.info(MSG[b.status])
+    prevStatus.current = b.status
+  }, [b?.status]) // eslint-disable-line react-hooks/exhaustive-deps
   const trackable = !!b && b.mode === 'home' && ['provider_assigned', 'on_the_way', 'in_progress'].includes(b.status)
 
   useEffect(() => {
@@ -110,6 +121,8 @@ export default function Tracking() {
         <div className="flex gap-2"><StatusBadge status={b.status} /><PayBadge status={b.payment_status} /></div>
       </div>
 
+      {b.status === 'completed' && <ThankYou b={b} onDone={() => { void qc.invalidateQueries({ queryKey: ['booking', id] }); void qc.invalidateQueries({ queryKey: ['bookings'] }) }} />}
+
       <div className="mt-6 grid gap-6 md:grid-cols-[1fr_1.2fr]">
         <section className="card p-5" aria-label="Status timeline">
           {ended ? (
@@ -157,6 +170,45 @@ export default function Tracking() {
       {cancel.dialog}
       {chatOpen && <BookingChat bookingId={b.id} title={contact.data?.salon_name ?? b.salons?.name ?? 'Salon'} phone={contact.data?.salon_phone} onClose={() => setChatOpen(false)} />}
     </div>
+  )
+}
+
+/** Shown once the partner marks the service done: thank-you + a genuine rating (only the customer of this completed booking can rate). */
+function ThankYou({ b, onDone }: { b: Booking; onDone: () => void }) {
+  const { user } = useAuth()
+  const toast = useToast()
+  const [rating, setRating] = useState(5)
+  const [comment, setComment] = useState('')
+  const [busy, setBusy] = useState(false)
+  const done = b.reviews?.[0]
+  const submit = async () => {
+    setBusy(true)
+    const r = await supabase.from('reviews').insert({ booking_id: b.id, customer_id: user!.id, salon_id: b.salon_id, rating, comment: comment.trim() || null })
+    setBusy(false)
+    if (r.error) return toast.error(friendlyError(r.error))
+    toast.success('Thanks for your review!'); onDone()
+  }
+  return (
+    <section className="card mt-6 overflow-hidden text-center">
+      <div className="bg-gradient-to-r from-lush-600 to-plum-700 px-5 py-6 text-white">
+        <PartyPopper className="mx-auto h-9 w-9" />
+        <h2 className="mt-2 font-display text-2xl font-semibold">Service done — thank you!</h2>
+        <p className="text-sm opacity-90">We hope you loved your experience with {b.salons?.name}.</p>
+      </div>
+      <div className="p-5">
+        {done ? (
+          <p className="font-medium">You rated this service {done.rating}★. Thank you for your feedback!</p>
+        ) : (
+          <div className="mx-auto max-w-sm space-y-3 text-left">
+            <p className="text-center font-semibold">How was your service?</p>
+            <div className="flex justify-center"><StarInput value={rating} onChange={setRating} /></div>
+            <textarea className="input min-h-24" maxLength={1000} placeholder="Tell others about your experience (optional)" value={comment} onChange={(e) => setComment(e.target.value)} />
+            <p className="flex items-center justify-center gap-1 text-xs text-muted"><BadgeCheck className="h-4 w-4 text-sky-500" />Verified booking — only customers who completed a service can review.</p>
+            <button className="btn btn-primary w-full" disabled={busy} onClick={() => void submit()}>{busy ? <Spinner /> : 'Submit review'}</button>
+          </div>)}
+        <div className="mt-4 flex flex-wrap justify-center gap-2"><Link to="/orders" className="btn btn-outline btn-sm">My orders</Link><Link to="/" className="btn btn-ghost btn-sm">Back to home</Link></div>
+      </div>
+    </section>
   )
 }
 

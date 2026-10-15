@@ -86,8 +86,8 @@ function BrandStrip() {
   const q = useQuery({ queryKey: ['brand-salons'], queryFn: getBrandSalons, staleTime: 5 * 60 * 1000 })
   if (!q.data?.length) return null
   return (
-    <section aria-label="Shop by brands" className="-mt-4 rounded-3xl bg-gradient-to-br from-blush-100 via-blush-50 to-white p-4 sm:p-5">
-      <h2 className="mb-3 font-display text-xl font-semibold sm:text-2xl">Shop by brands</h2>
+    <section aria-label="Services by brands" className="-mt-4 rounded-3xl bg-gradient-to-br from-blush-100 via-blush-50 to-white p-4 sm:p-5">
+      <h2 className="mb-3 font-display text-xl font-semibold sm:text-2xl">Services by brands</h2>
       <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2">
         {q.data.map((b) => (
           <Link key={b.id} to={`/salon/${b.slug}`} className="group w-24 shrink-0 text-center sm:w-28">

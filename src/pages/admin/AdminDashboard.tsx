@@ -110,7 +110,7 @@ function Bookings() {
   )
 }
 
-/** Admin: verify a salon as a company/brand (shown in the home page "Shop by brands" strip with the partner's own logo). */
+/** Admin: verify a salon as a company/brand (shown in the home page "Services by brands" strip with the partner's own logo). */
 function BrandPanel({ s }: { s: SalonRow }) {
   const qc = useQueryClient()
   const toast = useToast()
@@ -130,7 +130,7 @@ function BrandPanel({ s }: { s: SalonRow }) {
       {logo ? <img src={publicUrl(logo)!} alt="" className="h-12 w-12 rounded-full border border-line bg-white object-cover" /> : <span className="flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-blush-300 text-[10px] text-muted">No logo</span>}
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold">{s.brand_name || s.name}{verified && <span className="chip ml-2 !py-0.5 text-xs">Brand verified</span>}</p>
-        <p className="text-xs text-muted">{s.is_brand && !s.brand_verified ? 'Partner says this is a company / brand. Verify to show it on the home page.' : verified ? 'Shown in “Shop by brands” on the home page.' : 'Verify if this salon is a real brand or company.'}</p>
+        <p className="text-xs text-muted">{s.is_brand && !s.brand_verified ? 'Partner says this is a company / brand. Verify to show it on the home page.' : verified ? 'Shown in “Services by brands” on the home page.' : 'Verify if this salon is a real brand or company.'}</p>
       </div>
       <button type="button" className={`btn btn-sm ${verified ? 'btn-outline' : 'btn-primary'}`} disabled={toggle.isPending} aria-pressed={verified} title={verified ? 'Brand verified – click to remove' : 'Click to mark as verified brand'} onClick={() => toggle.mutate()}><BadgeCheck className="h-4 w-4" />Brand</button>
     </div>

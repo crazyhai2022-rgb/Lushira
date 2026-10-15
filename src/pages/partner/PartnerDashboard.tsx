@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Banknote, Bell, BellOff, BellRing, CalendarClock, CalendarDays, Check, IndianRupee, MapPin, Navigation, Phone, Radio, X } from 'lucide-react'
+import { Banknote, Bell, ChevronDown, BellOff, BellRing, CalendarClock, CalendarDays, Check, IndianRupee, MapPin, Navigation, Phone, Radio, X } from 'lucide-react'
 import { useMySalon } from './PartnerRegister'
 import { BOOKING_SELECT } from '../../lib/api'
 import { supabase } from '../../lib/supabase'
@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom'
 import { useToast } from '../../context/ToastContext'
 import { EmptyState, ErrorState, PageHero, Skeleton } from '../../components/ui'
 import { PayBadge, StatusBadge } from '../../components/booking'
+import MapView from '../../components/MapView'
 import BookingChat, { CHAT_STATUSES, ChatButton, useChatDelivery } from '../../components/BookingChat'
 import { playRing, useOrderRing, useRingSetting } from '../../lib/ring'
 import { BrandsEditor, HoursEditor, PhotosEditor, ServicesEditor, StaffEditor } from './editors'
@@ -128,7 +129,7 @@ function nextStep(b: Booking): { to: BookingStatus; label: string } | null {
   if (b.status === 'confirmed') return home ? { to: 'provider_assigned', label: 'Beautician assigned' } : { to: 'in_progress', label: 'Start service' }
   if (b.status === 'provider_assigned') return { to: 'on_the_way', label: "I'm on the way" }
   if (b.status === 'on_the_way') return { to: 'in_progress', label: 'Start service' }
-  if (b.status === 'in_progress') return { to: 'completed', label: 'Mark completed' }
+  if (b.status === 'in_progress') return { to: 'completed', label: b.payment_status === 'cash_due' ? 'Cash received & complete' : 'Mark completed' }
   return null
 }
 
@@ -137,10 +138,11 @@ function Bookings({ salon }: { salon: Salon }) {
   const qc = useQueryClient()
   const [f, setF] = useState<'new' | 'upcoming' | 'past'>('new')
   const [chat, setChat] = useState<{ id: string; title: string; phone: string } | null>(null)
+  const [openId, setOpenId] = useState<string | null>(null)
   const q = useSalonBookings(salon.id)
   const staff = useQuery({ queryKey: ['p-staff-act', salon.id], queryFn: async () => { const r = await supabase.from('salon_staff').select('id,name').eq('salon_id', salon.id).eq('is_active', true); return r.data ?? [] } })
   const act = useMutation({
-    mutationFn: async (p: { id: string; patch: Record<string, unknown> }) => { const r = await supabase.from('bookings').update(p.patch).eq('id', p.id).select('id,status').single(); if (r.error) throw r.error; if (p.patch.status && r.data.status !== p.patch.status) throw new Error('That status change is not allowed right now.') },
+    mutationFn: async (p: { id: string; patch: Record<string, unknown>; collectCash?: boolean }) => { if (p.collectCash) { const c = await supabase.rpc('mark_cash_collected', { p_booking_id: p.id }); if (c.error) throw c.error } const r = await supabase.from('bookings').update(p.patch).eq('id', p.id).select('id,status').single(); if (r.error) throw r.error; if (p.patch.status && r.data.status !== p.patch.status) throw new Error('That status change is not allowed right now.') },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['p-bookings', salon.id] }), onError: (e) => toast.error(friendlyError(e)),
   })
   const cash = useMutation({
@@ -172,6 +174,20 @@ function Bookings({ salon }: { salon: Salon }) {
                   {(b.mode === 'home' ? FLOW_HOME : FLOW_SALON).map((st, i, arr) => { const cur = arr.indexOf(b.status); return (
                     <li key={st} className="flex items-center gap-1"><span className={`whitespace-nowrap rounded-full px-2.5 py-1 font-medium ${i < cur ? 'bg-green-100 text-green-800' : i === cur ? 'bg-lush-600 text-white' : 'bg-blush-100 text-muted'}`}>{i < cur ? '✓ ' : ''}{FLOW_LABEL[st]}</span>{i < arr.length - 1 && <span className="text-muted">›</span>}</li>) })}
                 </ol>)}
+              {openId === b.id && (
+                <div className="mt-3 space-y-3 rounded-xl border border-line bg-blush-50 p-3 text-sm">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <p><span className="text-muted">Customer:</span> <strong>{b.customer_name}</strong></p>
+                    <p><span className="text-muted">Mobile:</span> <a className="text-lush-600" href={`tel:${b.customer_phone}`}>{b.customer_phone}</a></p>
+                    <p><span className="text-muted">Service:</span> {b.booking_items?.map((i) => `${i.name}${i.quantity > 1 ? ` ×${i.quantity}` : ''}`).join(', ')}</p>
+                    <p><span className="text-muted">Payment:</span> {b.payment_method === 'cash' ? 'Cash on service' : 'Paid online'} · {inr(b.total_inr)}</p>
+                    {b.mode === 'home' && b.address && <p className="sm:col-span-2"><span className="text-muted">Address:</span> {[b.address.line1, b.address.landmark, b.address.area, b.address.city, b.address.pin_code].filter(Boolean).join(', ')}</p>}
+                  </div>
+                  {b.mode === 'home' && b.address?.lat != null && b.address?.lng != null && (<>
+                    <div className="overflow-hidden rounded-xl"><MapView center={[b.address.lat, b.address.lng]} height={200} zoom={16} markers={[{ id: 'cust', lat: b.address.lat, lng: b.address.lng, label: b.customer_name, sub: 'Customer location', kind: 'home' }]} /></div>
+                    <a className="btn btn-primary btn-sm" target="_blank" rel="noopener noreferrer" href={`https://www.google.com/maps/dir/?api=1&destination=${b.address.lat},${b.address.lng}`}><Navigation className="h-4 w-4" />Navigate to customer</a>
+                  </>)}
+                </div>)}
               {b.notes && <p className="mt-2 rounded-lg bg-blush-50 p-2 text-xs text-muted">Note: {b.notes}</p>}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {b.status === 'pending' && (awaitingPay ? <span className="chip bg-amber-100 text-amber-800">Awaiting customer payment</span> : <>
@@ -179,9 +195,10 @@ function Bookings({ salon }: { salon: Salon }) {
                   <button className="btn btn-outline btn-sm" disabled={act.isPending} onClick={() => { if (window.confirm('Reject this booking?')) act.mutate({ id: b.id, patch: { status: 'rejected' } }) }}><X className="h-4 w-4" />Reject</button></>)}
                 {b.status === 'confirmed' && b.mode === 'home' && (staff.data?.length ?? 0) > 0 && (
                   <select className="input !w-auto !py-1.5 text-xs" aria-label="Assign beautician" value={b.staff_id ?? ''} onChange={(e) => e.target.value && act.mutate({ id: b.id, patch: { staff_id: e.target.value, status: 'provider_assigned' } })}><option value="">Assign beautician…</option>{staff.data!.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>)}
-                {nextStep(b) && <button className="btn btn-primary btn-sm" disabled={act.isPending} onClick={() => act.mutate({ id: b.id, patch: { status: nextStep(b)!.to } })}><Check className="h-4 w-4" />{nextStep(b)!.label}</button>}
+                {nextStep(b) && <button className="btn btn-primary btn-sm" disabled={act.isPending} onClick={() => act.mutate({ id: b.id, patch: { status: nextStep(b)!.to }, collectCash: nextStep(b)!.to === 'completed' && b.payment_status === 'cash_due' })}><Check className="h-4 w-4" />{nextStep(b)!.label}</button>}
                 {['confirmed', 'provider_assigned', 'on_the_way'].includes(b.status) && <button className="btn btn-ghost btn-sm" disabled={act.isPending} onClick={() => { if (window.confirm('Mark as no-show?')) act.mutate({ id: b.id, patch: { status: 'no_show' } }) }}>No show</button>}
                 {b.mode === 'home' && ['confirmed', 'provider_assigned', 'on_the_way'].includes(b.status) && <LiveShare bookingId={b.id} auto={b.status === 'on_the_way'} />}
+                {!['pending', 'rejected'].includes(b.status) && <button className="btn btn-ghost btn-sm" aria-expanded={openId === b.id} onClick={() => setOpenId(openId === b.id ? null : b.id)}>View order<ChevronDown className={`h-4 w-4 transition ${openId === b.id ? 'rotate-180' : ''}`} /></button>}
                 {CHAT_STATUSES.includes(b.status) && <ChatButton bookingId={b.id} onOpen={() => setChat({ id: b.id, title: b.customer_name, phone: b.customer_phone })} />}
                 {b.payment_status === 'cash_due' && ['in_progress', 'completed'].includes(b.status) && <button className="btn btn-dark btn-sm" disabled={cash.isPending} onClick={() => cash.mutate(b.id)}><Banknote className="h-4 w-4" />Cash collected</button>}
               </div>
