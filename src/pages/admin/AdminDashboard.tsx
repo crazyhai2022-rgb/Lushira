@@ -132,7 +132,7 @@ function BrandPanel({ s }: { s: SalonRow }) {
         <p className="text-sm font-semibold">{s.brand_name || s.name}{verified && <span className="chip ml-2 !py-0.5 text-xs">Brand verified</span>}</p>
         <p className="text-xs text-muted">{s.is_brand && !s.brand_verified ? 'Partner says this is a company / brand. Verify to show it on the home page.' : verified ? 'Shown in “Shop by brands” on the home page.' : 'Verify if this salon is a real brand or company.'}</p>
       </div>
-      <button type="button" className={`btn btn-sm ${verified ? 'btn-outline' : 'btn-primary'}`} disabled={toggle.isPending} onClick={() => toggle.mutate()}><BadgeCheck className="h-4 w-4" />{verified ? 'Unverify brand' : 'Verify brand'}</button>
+      <button type="button" className={`btn btn-sm ${verified ? 'btn-outline' : 'btn-primary'}`} disabled={toggle.isPending} aria-pressed={verified} title={verified ? 'Brand verified – click to remove' : 'Click to mark as verified brand'} onClick={() => toggle.mutate()}><BadgeCheck className="h-4 w-4" />Brand</button>
     </div>
   )
 }
