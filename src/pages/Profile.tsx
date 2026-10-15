@@ -5,6 +5,7 @@ import { Bell, Download, Heart, LogOut, MapPin, Plus, ShieldCheck, Trash2, User 
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { usePlace } from '../context/LocationContext'
+import { realEmail } from '../lib/mobileAuth'
 import { supabase, publicUrl } from '../lib/supabase'
 import { friendlyError } from '../lib/errors'
 import { fmtDateTime } from '../lib/format'
@@ -23,7 +24,7 @@ export default function Profile() {
   ]
   return (
     <>
-      <PageHero eyebrow="Account" title={profile?.full_name || 'My profile'} subtitle={user?.email ?? profile?.phone ?? ''} />
+      <PageHero eyebrow="Account" title={profile?.full_name || 'My profile'} subtitle={realEmail(user?.email) || profile?.phone || ''} />
       <div className="container-x grid gap-6 py-6 md:grid-cols-[220px_1fr]">
         <nav className="flex gap-2 overflow-x-auto md:flex-col" aria-label="Profile sections">
           {tabs.map((t) => <button key={t.k} onClick={() => setTab(t.k)} aria-current={tab === t.k} className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium ${tab === t.k ? 'bg-lush-600 text-white' : 'bg-white text-plum-800 hover:bg-blush-100'}`}><t.i className="h-4 w-4" />{t.l}</button>)}
@@ -63,7 +64,7 @@ function Details() {
   return (
     <form onSubmit={save} className="card max-w-lg space-y-4 p-5">
       <Field label="Full name" required><input className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></Field>
-      <Field label="Email"><input className="input bg-blush-50" value={user?.email ?? ''} readOnly /></Field>
+      <Field label="Email"><input className="input bg-blush-50" value={realEmail(user?.email)} readOnly placeholder="Not added" /></Field>
       <Field label="Mobile" hint={profile?.phone_verified ? 'Verified' : 'Add a mobile number when you book; verified login by mobile will be enabled soon.'}><input className="input bg-blush-50" value={profile?.phone ?? ''} readOnly placeholder="Not added" /></Field>
       <button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
     </form>

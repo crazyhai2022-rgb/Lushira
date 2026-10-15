@@ -6,6 +6,7 @@ import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useSettings } from '../hooks/useSettings'
+import { realEmail } from '../lib/mobileAuth'
 import { supabase } from '../lib/supabase'
 import { getSlots } from '../lib/api'
 import { dayLabel, duration, fmtTime, inr, istDate, normalizePhone } from '../lib/format'
@@ -30,7 +31,7 @@ export default function Checkout() {
   const [staffId, setStaffId] = useState<string>('')
   const [name, setName] = useState(profile?.full_name ?? '')
   const [phone, setPhone] = useState(profile?.phone ?? '')
-  const [email, setEmail] = useState(user?.email ?? '')
+  const [email, setEmail] = useState(realEmail(user?.email))
   const [notes, setNotes] = useState('')
   const [addr, setAddr] = useState<Addr>(emptyAddr)
   const [pay, setPay] = useState<Pay | null>(null)
@@ -190,7 +191,7 @@ export default function Checkout() {
             <h2 className="font-display text-xl font-semibold sm:col-span-2">2. Your details</h2>
             <Field label="Full name" required error={errs.name}><input className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></Field>
             <Field label="Mobile number" required error={errs.phone}><input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" placeholder="98765 43210" /></Field>
-            <div className="sm:col-span-2"><Field label="Email (for receipts)" error={errs.email}><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></Field></div>
+            <div className="sm:col-span-2"><Field label="Email (optional)" error={errs.email}><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></Field></div>
             <div className="sm:col-span-2"><Field label="Notes for the salon (optional)"><textarea className="input min-h-20" maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Allergies, preferences, parking info…" /></Field></div>
           </section>
 

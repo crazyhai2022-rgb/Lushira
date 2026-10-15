@@ -25,18 +25,15 @@ Partners get their role automatically when they register at `/partner/register`.
 
 ## Setup checklist
 1. **Auth → URL configuration:** set Site URL to your deployed URL and add `http://localhost:5173/**` to redirect URLs.
-2. **Email OTP:** Auth → Email Templates → *Magic Link* (and *Confirm signup*): include `{{ .Token }}` so users receive a 6-digit code (the link keeps working too). Configure custom SMTP for production volume.
-3. **Mobile OTP (optional, needs your SMS provider):** the `send-sms-hook` function is deployed. Then
-   - Auth → Providers → Phone → enable; Auth → Hooks → *Send SMS* → HTTPS → `https://<project>.supabase.co/functions/v1/send-sms-hook`, generate the secret.
-   - Function secrets: `SEND_SMS_HOOK_SECRET` (the `v1,whsec_…` value), and either `SMS_PROVIDER=msg91` + `MSG91_AUTH_KEY` + `MSG91_TEMPLATE_ID` (India needs a DLT-registered template) or `SMS_PROVIDER=twilio` + `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + `TWILIO_FROM`.
-   - Set `VITE_PHONE_OTP_ENABLED=true` and rebuild. Until then the UI honestly shows "being set up".
+2. **Mobile OTP (live, APITxT):** customers and partners register/log in with a 10-digit Indian mobile number only (no email). The `mobile-auth` Edge Function generates the 6-digit OTP, stores only its HMAC hash (10-min expiry, 5 attempts, single use), sends the SMS via APITxT and rate-limits by mobile (5/hour, 45 s resend gap) and IP. The APITxT auth key is stored server-side in `payment_secrets` (key `apitxt_auth_key`, no client access) — never in the frontend or repo. Accounts use an internal address `<mobile>@phone.lushira.app` (never shown, never emailed). Admins still log in with email + password via *Admin? Log in with email* on `/login`.
+3. (Old `send-sms-hook` / Supabase phone provider are no longer used.)
 4. **Razorpay (no env vars needed):** log in as admin → **Admin → Payments & refunds → Razorpay online payments**, paste Key ID + Key Secret (+ optional Webhook Secret) and press *Save & activate*. Keys are verified with Razorpay, the secret is stored server-side only (`payment_secrets`, no client access) and online payments switch on at checkout. Add the webhook shown on that panel in Razorpay (`.../functions/v1/razorpay-webhook`; events `payment.captured`, `order.paid`, `payment.failed`, `refund.processed`, `refund.failed`). Start with test keys.
 5. **Maps:** works out of the box with OpenStreetMap tiles + Nominatim search. For production traffic set `VITE_MAPBOX_TOKEN` and respect the OSM/Nominatim usage policy.
 6. **Salon discovery:** no salons are pre-loaded (nothing is invented). Salons appear when partners register and an admin approves them (Admin → Salons). Only import businesses you have permission to list.
 7. Unpaid online bookings auto-expire after 30 min (`pg_cron` job `lushira-expire-unpaid`, already scheduled).
 
 ## Edge Functions (`supabase/functions`, deployed)
-`razorpay-create-order`, `razorpay-verify`, `razorpay-webhook` (no JWT; HMAC-verified, idempotent via `webhook_events`), `razorpay-refund` (admin only), `admin-save-razorpay` (admin only), `send-sms-hook` (no JWT; Standard Webhooks signature, 5 OTP/hour/phone).
+`razorpay-create-order`, `razorpay-verify`, `razorpay-webhook` (no JWT; HMAC-verified, idempotent via `webhook_events`), `razorpay-refund` (admin only), `admin-save-razorpay` (admin only), `mobile-auth` (no JWT; OTP send/verify with rate limits), `send-sms-hook` (legacy, unused).
 
 ## Routes
 `/` · `/categories` · `/services` · `/service/:id` · `/salons` · `/salon/:slug` · `/wedding` · `/brands` · `/cart` · `/checkout` · `/order/:id` · `/orders` · `/track` · `/track/:id` · `/login` · `/signup` · `/profile` · `/about` · `/contact` · `/faq` · `/help` · `/privacy` · `/terms` · `/refund-policy` · `/partner` · `/partner/register` · `/partner/login` · `/partner/dashboard` (standalone partner portal; partners never see the customer site) · `/admin` · `/403` · 404

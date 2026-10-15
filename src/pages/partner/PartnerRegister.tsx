@@ -10,6 +10,8 @@ import { isEmail, normalizePhone } from '../../lib/format'
 import { reverseGeocode, searchPlaces, type PlaceHit } from '../../lib/geocode'
 import { Field, PageHero, Skeleton, Spinner } from '../../components/ui'
 import MapView from '../../components/MapView'
+import MobileAccount from '../../components/MobileAccount'
+import { realEmail } from '../../lib/mobileAuth'
 import { HoursEditor, PhotosEditor, ServicesEditor } from './editors'
 import type { Salon } from '../../lib/types'
 
@@ -86,38 +88,18 @@ function Status({ salon, onGo }: { salon: Salon; onGo: () => void }) {
 function AccountStep({ onDone }: { onDone: () => Promise<void> }) {
   const toast = useToast()
   const [mode, setMode] = useState<'signup' | 'login'>('signup')
-  const [f, setF] = useState({ name: '', email: '', password: '' })
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-  const [confirm, setConfirm] = useState(false)
-  const submit = async (e: FormEvent) => {
-    e.preventDefault(); setErr('')
-    if (mode === 'signup' && f.name.trim().length < 2) return setErr('Enter your full name.')
-    if (!isEmail(f.email.trim())) return setErr('Enter a valid email.')
-    if (f.password.length < 8) return setErr('Password must be at least 8 characters.')
-    setBusy(true)
-    const r = mode === 'signup'
-      ? await supabase.auth.signUp({ email: f.email.trim(), password: f.password, options: { data: { full_name: f.name.trim() }, emailRedirectTo: `${window.location.origin}/partner/register` } })
-      : await supabase.auth.signInWithPassword({ email: f.email.trim(), password: f.password })
-    if (r.error) { setBusy(false); return setErr(friendlyError(r.error)) }
-    if (!r.data.session) { setBusy(false); setConfirm(true); return }
+  const authed = async () => {
     const p = await supabase.rpc('become_partner')
-    setBusy(false)
     if (p.error) return toast.error(friendlyError(p.error))
     await onDone()
   }
-  if (confirm) return <div className="py-6 text-center"><CheckCircle2 className="mx-auto h-10 w-10 text-green-600" /><h2 className="mt-2 font-display text-xl font-semibold">Confirm your email</h2><p className="text-sm text-muted">We sent a link to {f.email}. Open it on this device to continue your registration.</p></div>
   return (
-    <form onSubmit={submit} className="space-y-4" noValidate>
+    <div className="space-y-4">
       <h2 className="font-display text-xl font-semibold">{mode === 'signup' ? 'Create your partner account' : 'Log in to continue'}</h2>
-      {mode === 'signup' && <Field label="Your full name" required><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoComplete="name" /></Field>}
-      <Field label="Email" required><input className="input" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} autoComplete="email" /></Field>
-      <Field label="Password" required hint="At least 8 characters."><input className="input" type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} /></Field>
-      {err && <p role="alert" className="text-sm text-red-600">{err}</p>}
-      <button className="btn btn-primary w-full" disabled={busy}>{busy ? <Spinner /> : mode === 'signup' ? 'Create account & continue' : 'Log in & continue'}</button>
+      <MobileAccount mode={mode} onAuthed={authed} />
       <p className="text-center text-sm text-muted">{mode === 'signup' ? 'Already registered?' : 'New partner?'} <button type="button" className="font-semibold text-lush-600" onClick={() => setMode(mode === 'signup' ? 'login' : 'signup')}>{mode === 'signup' ? 'Log in' : 'Create account'}</button></p>
       <p className="text-center text-xs text-muted">By continuing you agree to our <Link className="underline" to="/terms">Terms</Link> and <Link className="underline" to="/privacy">Privacy Policy</Link>.</p>
-    </form>
+    </div>
   )
 }
 
@@ -125,7 +107,7 @@ function InfoStep({ salon, onDone }: { salon: Salon | null; onDone: () => void }
   const { user, profile, refresh } = useAuth()
   const qc = useQueryClient()
   const toast = useToast()
-  const [f, setF] = useState({ name: salon?.name ?? '', business_type: salon?.business_type ?? 'Salon', description: salon?.description ?? '', contact_phone: salon?.contact_phone ?? '', contact_email: salon?.contact_email ?? user?.email ?? '', home_service: salon?.home_service ?? false, capacity: String(salon?.concurrent_capacity ?? 1), appointment_required: salon?.appointment_required ?? true, walk_in: salon?.walk_in ?? false, owner_name: profile?.full_name ?? '' })
+  const [f, setF] = useState({ name: salon?.name ?? '', business_type: salon?.business_type ?? 'Salon', description: salon?.description ?? '', contact_phone: salon?.contact_phone ?? '', contact_email: salon?.contact_email ?? realEmail(user?.email), home_service: salon?.home_service ?? false, capacity: String(salon?.concurrent_capacity ?? 1), appointment_required: salon?.appointment_required ?? true, walk_in: salon?.walk_in ?? false, owner_name: profile?.full_name ?? '' })
   const [err, setErr] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const submit = async (e: FormEvent) => {
@@ -144,7 +126,7 @@ function InfoStep({ salon, onDone }: { salon: Salon | null; onDone: () => void }
     const row = { name: f.name.trim(), business_type: f.business_type, description: f.description.trim() || null, contact_phone: ph, contact_email: f.contact_email.trim() || null, home_service: f.home_service, concurrent_capacity: cap, appointment_required: f.appointment_required, walk_in: f.walk_in }
     const r = salon ? await supabase.from('salons').update(row).eq('id', salon.id).select('id').single() : await supabase.from('salons').insert({ ...row, owner_id: user!.id }).select('id').single()
     if (r.error) { setBusy(false); return toast.error(friendlyError(r.error)) }
-    const p = await supabase.from('salon_private').upsert({ salon_id: r.data.id, owner_name: f.owner_name.trim(), owner_phone: ph, owner_email: user?.email ?? null })
+    const p = await supabase.from('salon_private').upsert({ salon_id: r.data.id, owner_name: f.owner_name.trim(), owner_phone: ph, owner_email: realEmail(user?.email) || null })
     setBusy(false)
     if (p.error) return toast.error(friendlyError(p.error))
     await qc.invalidateQueries({ queryKey: ['my-salon'] }); await refresh(); onDone()
